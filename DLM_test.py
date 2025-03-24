@@ -1,4 +1,5 @@
 from DLM import DLM
 
-bot = DLM()
-bot.ask()
+while True:
+    bot = DLM()
+    bot.ask()
