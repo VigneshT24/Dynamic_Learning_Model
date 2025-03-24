@@ -26,6 +26,7 @@ class DLM:
                 match = difflib.SequenceMatcher(None, self.__query, line.strip().split(">>")[0])
                 if match.ratio() > 0.75: # returns a ratio representing how much the current question matches a specific question in database
                     print(line.split(">>", 1)[1].strip()) # if 75% match, return the answer
+                    # ASK IF THIS IS THE ANSWER THEY ARE LOOKING FOR!
                     return
         self.__expectation = input("What was the expected response (training mode): ") # train DLM
         self.__learn(self.__query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
