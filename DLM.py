@@ -10,20 +10,20 @@ class DLM:
     def __init__(self):
         self.__file = open(self.__filename, "a")
 
-    # checks to see if given query already exists in the database (avoids redundant data)
-    def data_exists(self):
+    # private helper that checks to see if given query already exists in the database (avoids redundant data)
+    def __data_exists(self):
         with open(self.__filename, "r") as file:
             for line in file:
                 # don't do anything if pair already exists in database
                 if self.__query == line.strip().split(">>")[0]: return True
         return False
 
-    # handles the learning aspect of the bot; if Q/A pair doesn't exist in database, add it there
-    def learn(self, query, expectation):
-        if (not self.data_exists()):
+    # private helper that handles the learning aspect of the bot; if Q/A pair doesn't exist in database, add it there
+    def __learn(self, query, expectation):
+        if (not self.__data_exists()):
             self.__file.write("\n" + query + ">>" + expectation)
 
-    # only method developer/user can use to train DLM or get answers to known queries
+    # public method that handles the ask me anything (AMA) aspect of the bot; this is where the bot either learns or knows queries
     def ask(self, trainingOnly):
         print("Training Only") if trainingOnly else print("AMA Only (with training ability)")
         self.__query = input("DML Bot here, ask away: ")
@@ -38,9 +38,9 @@ class DLM:
                             print("Great!")
                             return
                         break
-        if (not self.data_exists()):
+        if (not self.__data_exists()):
             self.__expectation = input("I don't know the answer. What was the expected response (training mode): ") # train DLM
-            self.learn(self.__query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
+            self.__learn(self.__query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
             print("I learned something new!") # confirmation that it went through the whole process
         else:
             print("I already know this! Try another query.")
