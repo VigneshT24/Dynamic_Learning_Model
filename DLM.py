@@ -12,7 +12,7 @@ class DLM:
 
     # public method that handles the ask me anything (AMA) aspect of the bot; this is where the bot either learns or knows queries
     def ask(self):
-        self.__query = input("DML Bot here, ask away: ")
+        self.__query = input("DLM Bot here, ask away: ")
         with open(self.__filename, "r") as file: # go through database to see if question fuzzily matches with anything, if so, answer the question, else, learn the question
             for line in file:
                 match = difflib.SequenceMatcher(None, self.__query.lower(), line.strip().split(">>")[0].lower())
