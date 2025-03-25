@@ -473,3 +473,66 @@ Can trees communicate?>>Yes, they release chemical signals and connect via under
 how many languages are spoken in the world?>>Over 7,000 languages
 what is the loudest sound ever recorded?>>The Krakatoa volcanic eruption in 1883
 what does dna stand for?>>Deoxyribonucleic Acid
+what is a computer?>>A machine that processes data and performs tasks according to instruction
+what is software?>>A set of instructions that tell a computer how to perform tasks
+what is hardware?>>The physical components of a computer, like the CPU, RAM, and hard drive
+what is an operating system>>A system that manages computer hardware and software (e.g., Windows, macOS, Linux)
+what is RAM?>>Random Access Memory; it stores temporary data for quick access
+what is a CPU?>>The Central Processing Unit, often called the "brain" of the computer
+what is a hard drive?>>A device used for storing data permanently
+what is a solid state drive?>>A faster type of storage that uses flash memory instead of spinning disks
+what is SSD?>>A faster type of storage that uses flash memory instead of spinning disks
+what is cloud computing?>>The delivery of computing services like storage and processing over the internet
+what is the internet?>>A global network that connects millions of computers worldwide
+what is an IP address?>>A unique identifier for a device on a network
+what is a domain name?>>A human-readable web address, like google.com, that maps to an IP address
+what is HTTP?>>Hypertext Transfer Protocol, used for transferring data over the web
+what is a firewall?>>A security system that monitors and controls incoming and outgoing network traffic
+what is a VPN?>>A Virtual Private Network that encrypts your internet connection for privacy
+what is DNS?>>The Domain Name System, which translates domain names into IP addresses
+what is bandwidth?>>The amount of data that can be transmitted over a network in a given time
+what is latency?>>The delay before data is transmitted over a network
+what is programming?>>The process of writing instructions that a computer can execute
+what is a programming language?>>A formal language used to write code, like Python, Java, or C++
+what is an algorithm?>>A step-by-step set of instructions to solve a problem
+What is an IDE?>>An Integrated Development Environment, a tool for writing and debugging code
+what is open source software?>>Software with publicly available source code that anyone can modify
+what is python?>>A high-level, versatile programming language known for its simplicity
+How do you print text in Python?>>print("Hello, world!")
+what is a python list?>>A collection of items stored in square brackets, e.g., [1, 2, 3]
+What is a python dictionary?>>A collection of key-value pairs, e.g., {"name": "Alice", "age": 25}
+How do you write a loop in Python?>>for i in range(5): print(i)
+what is a Python module?>>A file containing Python code that can be imported and reused
+what is a lambda function?>>A small anonymous function written as lambda x: x * 2
+how do you handle exceptions in Python?>>Using try and except blocks
+what is the difference between Python 2 and Python 3?>>Python 3 has better Unicode support and improved syntax
+How do you install packages in Python?>>Using pip install package_name
+what is Android?>>A mobile operating system developed by Google
+what is iOS?>>Apple�s mobile operating system for iPhones and iPads
+what is an API?>>An Application Programming Interface, which allows different software to communicate
+what is a mobile app?>>A software application designed to run on mobile devices
+what is React Native?>>A framework for building mobile apps using JavaScript and React
+what is Flutter?>>A UI toolkit from Google for building cross-platform apps
+what is swift?>>A programming language used for developing iOS apps
+what is Kotlin?>>A programming language used for developing Android apps
+what is an emulator?>>Software that simulates a mobile device on a computer for testing
+what is a mobile SDK?>>A Software Development Kit for creating mobile applications
+what is cybersecurity?>>The practice of protecting computer systems from cyber threats
+what is a virus?>>A type of malicious software that replicates itself and spreads
+what is phishing?>>A cyber attack that tricks people into revealing sensitive information
+what is ransomware?>>Malware that encrypts files and demands payment for decryption
+what is two factor authentication (2FA)?>>A security method requiring two forms of verification
+what is an ethical hacker?>>A professional who tests security systems to find vulnerabilities
+what is a brute force attack?>>A hacking method that tries every possible password combination
+what is a DDoS attack?>>A Distributed Denial of Service attack that overwhelms a system with traffic
+what is a strong password?>>A password with a mix of letters, numbers, and special characters
+how do you stay safe online?>>Use strong passwords, enable 2FA, and avoid suspicious link
+what is machine learning?>>A branch of AI that allows computers to learn from data
+what is blockchain?>>A decentralized and secure digital ledger technology
+what is the metaverse?>>A virtual world combining augmented and virtual reality experiences
+what is quantum computing?>>A type of computing that uses quantum bits (qubits) for processing
+what if 5G?>>The fifth-generation wireless technology that provides faster internet speeds
+what is the Internet of Things (IoT)?>>The connection of everyday devices to the internet
+what is cloud gaming?>>Playing video games streamed from the cloud instead of running on a local device
+what is a self driving car?>>A vehicle that uses AI and sensors to navigate without human input
+what is a deekfake?>>AI-generated media that manipulates faces and voices in videos
