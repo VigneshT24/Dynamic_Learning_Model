@@ -8,6 +8,9 @@ userChoice = input("\nDo you want to solely train DLM or ask DLM with questions 
 
 bot = DLM()
 
+while (userChoice.lower() != "train" and userChoice.lower() != "ask"):
+    userChoice = input("\nPlease type either 'train' or 'ask', nothing else: ")
+
 while canContinue:
     bot.ask(userChoice == "train")
     choice = input("Continue (Y/N): ")
