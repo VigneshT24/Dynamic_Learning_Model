@@ -37,6 +37,9 @@ class DLM:
                         break
         if not self.__data_exists():
             self.__expectation = input("I don't know the answer. What was the expected response (training mode): ") # train DLM
+            while not self.__expectation:
+                print("Nothing learnt. Moving on.")
+                return
             self.__learn(self.__query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
             print("I learned something new!") # confirmation that it went through the whole process
         else:
