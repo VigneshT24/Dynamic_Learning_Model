@@ -15,5 +15,5 @@ while canContinue:
     bot.ask()
     choice = input("Continue (Y/N): ")
     while (choice.lower() != "y" and choice.lower() != "n"):
-        userChoice = input("\nPlease type either 'Y' or 'N' to proceed: ")
+        choice = input("\nPlease type either 'Y' or 'N' to proceed: ")
     canContinue = choice.lower() == "y"
