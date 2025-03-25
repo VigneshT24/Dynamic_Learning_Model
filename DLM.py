@@ -6,10 +6,6 @@ class DLM:
     __query = None
     __expectation = None
 
-    # constructor that opens the database file
-    def __init__(self):
-        self.__file = open(self.__filename, "a")
-
     # private helper that checks to see if given query already exists in the database (avoids redundant data)
     def __data_exists(self):
         with open(self.__filename, "r") as file:
@@ -20,8 +16,9 @@ class DLM:
 
     # private helper that handles the learning aspect of the bot; if Q/A pair doesn't exist in database, add it there
     def __learn(self, query, expectation):
-        if (not self.__data_exists()):
-            self.__file.write("\n" + query + ">>" + expectation)
+        if not self.__data_exists():
+            with open(self.__filename, "a") as file:
+                file.write("\n" + query + ">>" + expectation)
 
     # public method that handles the ask me anything (AMA) aspect of the bot; this is where the bot either learns or knows queries
     def ask(self, trainingOnly):
@@ -38,7 +35,7 @@ class DLM:
                             print("Great!")
                             return
                         break
-        if (not self.__data_exists()):
+        if not self.__data_exists():
             self.__expectation = input("I don't know the answer. What was the expected response (training mode): ") # train DLM
             self.__learn(self.__query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
             print("I learned something new!") # confirmation that it went through the whole process
