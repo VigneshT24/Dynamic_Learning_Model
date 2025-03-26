@@ -4,30 +4,24 @@ import string
 import random
 
 class DLM:
-    __filename = "stored_data.txt"
-    __query = None
-    __expectation = None
+    __filename = "stored_data.txt" # database
+    __query = None # user-inputted query
+    __expectation = None # user-inputted expected answer to query
 
-    # following 3 lists are used to detect specific types of incomplete sentences
-    __conjunctions = [
-        "if", "but", "and", "so", "because", "or", "then", "although", "though", "whereas", "while", "unless", "until",
-        "for", "nor", "yet", "after", "as", "as if", "as long as", "as much as", "as soon as", "as though",
-        "before", "even if", "even though", "if only", "in order that", "once",
-        "provided that", "rather than", "since", "so that", "than", "that",
-        "where", "wherever", "whenever", "whether", "why"
-    ]
-
-    __auxiliary_verbs = [
-        "is", "was", "were", "am", "are", "be", "being", "been", "will", "shall", "should", "would",
-        "can", "could", "may", "might", "must", "do", "does", "did", "has", "have", "had",
-        "ought", "need", "dare", "used",
-    ]
-
-    __prepositions = [
-        "in", "on", "at", "for", "with", "about", "of", "by", "to", "from", "under", "over",
-        "between", "into", "onto", "without", "through", "among", "beside", "around", "before",
-        "after", "against", "during", "within", "beyond", "beneath", "behind", "above", "below",
-        "towards", "along", "across", "throughout", "into", "upon", "through", "out", "up"
+    # words to be filtered from user input for better accuracy and less distractions
+    __filler_words = [
+        "a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if",
+        "in", "into", "is", "it", "of", "on", "or", "such", "that", "the",
+        "their", "then", "there", "these", "they", "this", "to", "was", "will",
+        "with", "about", "after", "again", "against", "all", "am", "any", "because",
+        "before", "being", "between", "both", "during", "each", "few", "further",
+        "had", "has", "have", "he", "her", "here", "hers", "him", "himself", "his",
+        "how", "i", "into", "itself", "me", "more", "most", "my", "myself", "no",
+        "nor", "not", "now", "of", "off", "on", "once", "only", "other", "our",
+        "ours", "ourselves", "out", "over", "own", "same", "she", "should", "so",
+        "some", "such", "than", "too", "under", "until", "up", "very", "was", "we",
+        "were", "what", "when", "where", "which", "while", "who", "whom", "why",
+        "with", "you", "your", "yours", "yourself", "yourselves"
     ]
 
     def __learn(self, query, expectation):
@@ -36,96 +30,49 @@ class DLM:
             file.write("\n" + query + ">>" + expectation)
 
     def __isIncomplete(self, userInput):
-        """
-            __isIncomplete Method {private}
-            =======================
-
-            Description:
-            Checks if userInput is incomplete by analyzing its structure and last word.
-
-            Parameters:
-            userInput: A string input by the user that will be checked for possible incompleteness.
-
-            Returns:
-            result: A message notifying the user that their input might be incomplete.
-
-            Raises:
-            TypeError: If 'userInput' is not a string.
-        """
+        """ if the filtered userInput is empty, that would mean that there were only filler words, therefore denoting as incomplete """
         if not isinstance(userInput, str):
             raise TypeError("Expected a string input.")
 
-        userInput = userInput.translate(str.maketrans("", "", string.punctuation.replace("?", ""))).strip()
-        words = userInput.split()
-
-        if not words:
-            return None  # Empty input is not incomplete, just ignored.
-
-        lastWord = words[-1].lower()
-
-        # Common question starters to detect valid questions
-        question_starters = {"who", "what", "when", "where", "why", "how", "which", "whose", "whom", "did", "does",
-                             "do", "is", "are", "can", "could", "will", "would", "shall", "should", "may", "might",
-                             "was", "were", "has", "have", "had"}
-
-        # If it's a question (ends with "?" or starts with a question word), it's valid
-        if userInput.endswith("?") or words[0].lower() in question_starters:
-            return None
-
-        messages = {
-            "conjunction": [
+        # gives personalized message to user when message is incomplete
+        messages = [
                 "It looks like your thought isn't finished. Did you mean to continue?",
-                "Your sentence ends with a conjunction. Do you want to add something?",
-                "Hmm, that seems unfinished. What were you about to say next?"
-            ],
-            "auxiliary_verb": [
-                "Your input stops at an auxiliary verb. What were you trying to express?",
+                "Your sentence is incomplete. Do you want to add something?",
+                "Hmm, that seems unfinished. What were you about to say next?",
+                "Your input stops abruptly. What were you trying to express?",
                 "It sounds like something is missing. Want to complete your thought?",
-                "That feels incomplete. Can you clarify what you meant?"
-            ],
-            "preposition": [
-                "Your sentence ends with a preposition. Were you about to add more?",
+                "That feels incomplete. Can you clarify what you meant?",
+                "Your sentence ends weirdly. Were you about to add more?",
                 "That seems like it's missing a part. What comes after?",
-                "It sounds like you were going to say something else. Want to continue?"
-            ]
-        }
+                "It sounds like you were going to say something else. Want to continue?"]
+        return random.choice(messages) if len(userInput) == 0 else None
 
-        # Check if last word matches one of the incomplete categories
-        if any(lastWord == word.lower() for word in self.__conjunctions):
-            return random.choice(messages["conjunction"])
-        elif any(lastWord == word.lower() for word in self.__auxiliary_verbs):
-            return random.choice(messages["auxiliary_verb"])
-        elif any(lastWord == word.lower() for word in self.__prepositions):
-            return random.choice(messages["preposition"])
+    def __filtered_input (self, userInput):
+        """ filter all the words using 'filler_words' list """
+        # Tokenize user input (split into words)
+        words = userInput.lower().split()
 
-        return None  # If none of the conditions apply, it's a complete sentence
+        # Remove filler words
+        filtered_words = [word for word in words if word not in self.__filler_words]
 
-    def __tokenize(self, userInput):
-        """ Tokenizes the sentence and removes punctuation """
-        return userInput.translate(str.maketrans('', '', string.punctuation)).lower().split()
+        # Join the remaining words back into a string
+        return " ".join(filtered_words)
 
     def ask(self):
         """ Main method in which the user is able to ask any query and DLM will either answer it or learn it """
         self.__query = input("DLM Bot here, ask away: ")
+
+        # storing the user-query (filtered and lower-case)
+        filtered_query = self.__filtered_input(self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
         with open(self.__filename, "r") as file:
             for line in file:
+
+                # storing the database line's query
                 stored_question = line.strip().split(">>")[0].lower()
-                query_lower = self.__query.lower()
+                similarity = difflib.SequenceMatcher(None, stored_question, filtered_query).ratio()
 
-                # Tokenize query and stored question into words
-                query_tokens = self.__tokenize(query_lower)
-                stored_tokens = self.__tokenize(stored_question)
-
-                # Calculate similarity based on word importance
-                keyword_match_count = sum(1 for word in query_tokens if word in stored_tokens)
-                total_unique_words = len(set(query_tokens + stored_tokens))
-
-                # Compute weighted similarity score
-                keyword_similarity = keyword_match_count / total_unique_words  # How many words match?
-                overall_similarity = difflib.SequenceMatcher(None, query_lower, stored_question).ratio()  # String-based match
-
-                # Only accept a match if BOTH word-based and overall similarity are high enough
-                if keyword_similarity > 0.5 and overall_similarity > 0.85:
+                # Only accept a match if similarity is 87% or more
+                if similarity >= 0.87:
                     print(f"\n{'\033[34m'}" + line.split(">>", 1)[1].strip() + f"{'\033[0m'}\n")
                     self.__expectation = input("Is this what you expected (Y/N): ")
 
@@ -136,12 +83,16 @@ class DLM:
                         print("Great!")
                         return
                     break  # If incorrect, allow learning
+
         if self.__isIncomplete(self.__query) != None:
             print(str(self.__isIncomplete(self.__query)))
             return
+
         self.__expectation = input("I'm not sure. What was the expected response (training mode): ") # train DLM
+
         while not self.__expectation:
             print("Nothing learnt. Moving on.")
             return
-        self.__learn(self.__query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
+
+        self.__learn(filtered_query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
         print("I learned something new!") # confirmation that it went through the whole process
