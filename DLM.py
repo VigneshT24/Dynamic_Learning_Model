@@ -1,5 +1,6 @@
 # Dynamic-Learning Model (DLM) bot that learns how to respond to questions by learning from user input/expectations
 import difflib
+import string
 class DLM:
     __filename = "stored_data.txt"
     __query = None
@@ -13,7 +14,7 @@ class DLM:
     # public method that handles the ask me anything (AMA) aspect of the bot; this is where the bot either learns or knows queries
     def ask(self):
         self.__query = input("DLM Bot here, ask away: ")
-        with open(self.__filename, "r") as file: # go through database to see if question fuzzily matches with anything, if so, answer the question, else, learn the question
+        with (open(self.__filename, "r") as file): # go through database to see if question fuzzily matches with anything, if so, answer the question, else, learn the question
             for line in file:
                 stored_question = line.strip().split(">>")[0].lower()
                 query_lower = self.__query.lower()
@@ -22,13 +23,13 @@ class DLM:
                 mid_query = len(query_lower) // 2
                 mid_stored = len(stored_question) // 2
 
-                query_first_half, query_second_half = query_lower[:mid_query], query_lower[mid_query:]
-                stored_first_half, stored_second_half = stored_question[:mid_stored], stored_question[mid_stored:]
+                query_first_half, query_second_half = query_lower[:mid_query].translate(str.maketrans('', '', string.punctuation)),query_lower[mid_query:].translate(str.maketrans('', '', string.punctuation))
+                stored_first_half, stored_second_half = stored_question[:mid_stored].translate(str.maketrans('', '', string.punctuation)), stored_question[mid_stored:].translate(str.maketrans('', '', string.punctuation))
 
                 # Compare first half and second half separately
                 first_half_match = difflib.SequenceMatcher(None, query_first_half, stored_first_half).ratio()
                 second_half_match = difflib.SequenceMatcher(None, query_second_half, stored_second_half).ratio()
-                if first_half_match > 0.85 and second_half_match > 0.85: # returns a ratio representing how much the current question matches a specific question in database
+                if first_half_match > 0.85 and second_half_match > 0.60: # returns a ratio representing how much the current question matches a specific question in database
                     print(f"\n{'\033[34m'}" + line.split(">>", 1)[1].strip() + f"{'\033[0m'}\n") # if 80% match, give the answer
                     self.__expectation = input("Is this what you expected (Y/N): ")
                     while not self.__expectation: # expectation must not be empty
