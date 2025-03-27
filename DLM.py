@@ -183,7 +183,8 @@ class DLM:
         if incompleteness != None:
             print(str(incompleteness))
             return
-
+        
+        # only executes if training option is TRUE
         if (trainingMode):
             self.__expectation = input("I'm not sure. What was the expected response (training mode): ")  # train DLM
 
