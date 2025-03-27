@@ -9,7 +9,7 @@ userChoice = input("\nThere are two options: Train the DLM Bot (type 'T') or use
 bot = DLM()
 
 while (userChoice.lower() != "t" and userChoice.lower() != "a"):
-    userChoice = input("\nPlease type either 'Y' or 'N' to proceed: ")
+    userChoice = input("\nPlease type either 'T' or 'A' to proceed: ")
 
 while canContinue:
     bot.ask(userChoice.lower() == "t")
