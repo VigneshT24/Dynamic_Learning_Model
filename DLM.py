@@ -3,6 +3,7 @@ import difflib
 import string
 import random
 
+
 class DLM:
     __filename = "stored_data.txt"  # database
     __query = None  # user-inputted query
@@ -32,7 +33,7 @@ class DLM:
 
         # Articles & Determiners (Words that don't add meaning to sentence)
         "a", "an", "the", "some", "any", "each", "every", "either", "neither", "this", "that", "these", "those",
-        "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all"
+        "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all",
 
         # Pronouns (General pronouns that don’t change meaning)
         "i", "me", "my", "mine",
@@ -43,18 +44,23 @@ class DLM:
         "whoever", "wherever", "whenever", "whosoever", "others", "oneself",
 
         # Auxiliary (Helping) Verbs (Do not contribute meaning)
-        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do", "does",
-        "did", "doing", "shall", "should", "will", "would", "can", "could", "may", "might", "must", "bad", "dare", "need",
-        "used", "shalln't", "should've", "would've", "could've", "must've", "might've", "mustn't", "good"
+        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do",
+        "does",
+        "did", "doing", "shall", "should", "will", "would", "can", "could", "may", "might", "must", "bad", "dare",
+        "need",
+        "used", "shallnt", "shouldve", "wouldve", "couldve", "mustve", "mightve", "mustnt", "good",
 
         # Conjunctions (Connectors that do not change meaning)
-        "and", "but", "or", "nor", "so", "for", "yet", "although", "though", "because", "since", "unless",
-        "while", "whereas", "either", "neither", "both", "whether", "not", "if", "even if", "even though", "common", "as long as",
+        "and", "but", "or",
+        "nor", "so", "for", "yet", "although", "though", "because", "since", "unless",
+        "while", "whereas", "either", "neither", "both", "whether", "not", "if", "even if", "even though", "common",
+        "as long as",
         "provided that", "whereas", "therefore", "thus", "hence", "meanwhile", "besides", "furthermore",
 
         # Prepositions (Location/Relation words that are often unnecessary)
         "about", "above", "across", "after", "against", "along", "among", "around", "as", "at",
-        "before", "behind", "below", "beneath", "beside", "between", "beyond", "by", "low", "high", "despite", "down", "during",
+        "before", "behind", "below", "beneath", "beside", "between", "beyond", "by", "low", "high", "despite", "down",
+        "during", "happen",
         "except", "for", "from", "in", "inside", "into",
         "like", "near", "of", "off", "on", "onto", "out", "outside", "over", "past",
         "since", "through", "throughout", "till", "to", "toward", "under", "underneath",
@@ -77,14 +83,15 @@ class DLM:
         "yo", "bruh", "dude", "bro", "sis", "mate", "fam", "nah", "yup", "nope", "welp",
 
         # Verbs Commonly Used in Questions (but don’t change meaning)
-        "do", "does", "did", "can", "could", "should", "shall", "will", "would", "may", "might", "must", "use", "tell",
-        "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe",
-        "list", "give", "provide", "help", "make", "see", "mean", "understand", "point out", "stay", "look", "care"
+        "go", "do", "dont", "does", "did", "can", "can't", "could", "couldnt", "should", "shouldnt", "shall", "will", "would", "wouldnt", "may", "might", "must", "use", "tell",
+        "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe", "take",
+        "list", "give", "provide", "help", "make", "see", "mean", "understand", "point out", "stay", "look", "care",
 
         # Contracted Forms (Casual writing contractions)
-        "i'd", "i'll", "i'm", "i've", "you'd", "you'll", "you're", "you've", "he'd", "he'll", "he's",
-        "she'd", "she'll", "she's", "we'd", "we'll", "we're", "we've", "they'd", "they'll", "they're", "they've",
-        "it's", "that's", "who's", "what's", "where's", "when's", "why's", "how's", "there's", "here's", "let's",
+        "id",
+        "ill", "im", "ive", "youd", "youll", "youre", "youve", "hed", "hell", "hes",
+        "shed", "shell", "shes", "wed", "well", "were", "weve", "theyd", "theyll", "theyre", "theyve",
+        "its", "thats", "whos", "whats", "wheres", "whens", "whys", "hows", "theres", "heres", "lets",
 
         # Conversational Fillers (Unnecessary words in casual speech)
         "actually", "basically", "seriously", "literally", "obviously", "honestly", "frankly", "clearly",
@@ -138,7 +145,7 @@ class DLM:
         words = userInput.lower().split()
 
         # Remove filler words
-        filtered_words = [word for word in words if word not in self.__filler_words]
+        filtered_words = [word for word in words if word.lower() not in self.__filler_words]
 
         # Join the remaining words back into a string
         return " ".join(filtered_words)
@@ -152,7 +159,7 @@ class DLM:
         filtered_query = self.__filtered_input(self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
 
         highest_similarity = 0;
-        best_match_answer = None # stores the best answer after o(n) iterations
+        best_match_answer = None  # stores the best answer after o(n) iterations
         with open(self.__filename, "r") as file:
             for line in file:
                 # storing both the question and answer from database
@@ -183,7 +190,7 @@ class DLM:
         if incompleteness != None:
             print(str(incompleteness))
             return
-        
+
         # only executes if training option is TRUE
         if (trainingMode):
             self.__expectation = input("I'm not sure. What was the expected response (training mode): ")  # train DLM
