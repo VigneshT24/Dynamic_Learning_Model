@@ -87,8 +87,7 @@ class DLM:
         "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe", "take",
         "list", "give", "provide", "help", "make", "see", "mean", "understand", "point out", "stay", "look", "care",
 
-        # Contracted Forms (Casual writing contractions)
-        "id",
+        # Contracted Forms (Casual writing contractions),
         "ill", "im", "ive", "youd", "youll", "youre", "youve", "hed", "hell", "hes",
         "shed", "shell", "shes", "wed", "well", "were", "weve", "theyd", "theyll", "theyre", "theyve",
         "its", "thats", "whos", "whats", "wheres", "whens", "whys", "hows", "theres", "heres", "lets",
@@ -158,7 +157,7 @@ class DLM:
         # storing the user-query (filtered and lower-case)
         filtered_query = self.__filtered_input(self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
 
-        highest_similarity = 0;
+        highest_similarity = 0
         best_match_answer = None  # stores the best answer after o(n) iterations
         with open(self.__filename, "r") as file:
             for line in file:
@@ -174,8 +173,8 @@ class DLM:
                     highest_similarity = similarity
                     best_match_answer = stored_answer.strip()
 
-        # only accept a match if highest_similarity is 75% or more and best_match_answer is not None
-        if highest_similarity >= 0.75 and best_match_answer:
+        # only accept a match if highest_similarity is 60% or more and best_match_answer is not None
+        if highest_similarity >= 0.60 and best_match_answer:
             print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
             self.__expectation = input("Is this what you expected (Y/N): ")
 
