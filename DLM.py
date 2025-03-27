@@ -176,13 +176,16 @@ class DLM:
         # only accept a match if highest_similarity is 60% or more and best_match_answer is not None
         if highest_similarity >= 0.60 and best_match_answer:
             print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
-            self.__expectation = input("Is this what you expected (Y/N): ")
+            if trainingMode:
+                self.__expectation = input("Is this what you expected (Y/N): ")
 
-            while not self.__expectation:
-                self.__expectation = input("Empty input is not acceptable. Is this what you expected (Y/N): ")
+                while not self.__expectation:
+                    self.__expectation = input("Empty input is not acceptable. Is this what you expected (Y/N): ")
 
-            if self.__expectation.lower() == "y":
-                print("Great!")
+                if self.__expectation.lower() == "y":
+                    print("Great!")
+                    return
+            else:
                 return
 
         incompleteness = self.__isIncomplete(filtered_query)
