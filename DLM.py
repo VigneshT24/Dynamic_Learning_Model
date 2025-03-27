@@ -4,9 +4,9 @@ import string
 import random
 
 class DLM:
-    __filename = "stored_data.txt" # database
-    __query = None # user-inputted query
-    __expectation = None # user-inputted expected answer to query
+    __filename = "stored_data.txt"  # database
+    __query = None  # user-inputted query
+    __expectation = None  # user-inputted expected answer to query
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -35,26 +35,27 @@ class DLM:
         "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all"
 
         # Pronouns (General pronouns that don’t change meaning)
-        "i", "me", "my", "mine", "myself", "you", "your", "yours", "yourself", "he", "him", "his", "himself",
+        "i", "me", "my", "mine",
+        "myself", "you", "your", "yours", "yourself", "he", "him", "his", "himself",
         "she", "her", "hers", "herself", "it", "its", "itself", "we", "us", "our", "ours", "ourselves",
         "they", "them", "their", "theirs", "themselves", "who", "whom", "whose", "which", "that",
         "someone", "somebody", "anyone", "anybody", "everyone", "everybody", "nobody", "people", "person",
         "whoever", "wherever", "whenever", "whosoever", "others", "oneself",
 
         # Auxiliary (Helping) Verbs (Do not contribute meaning)
-        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best"
-        "do", "does", "did", "doing", "shall", "should", "will", "would", "can", "could", "may", "might", "must", "bad"
-        "dare", "need", "used", "shalln't", "should've", "would've", "could've", "must've", "might've", "mustn't", "good"
-                                                                                                                   
+        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do", "does",
+        "did", "doing", "shall", "should", "will", "would", "can", "could", "may", "might", "must", "bad", "dare", "need",
+        "used", "shalln't", "should've", "would've", "could've", "must've", "might've", "mustn't", "good"
+
         # Conjunctions (Connectors that do not change meaning)
         "and", "but", "or", "nor", "so", "for", "yet", "although", "though", "because", "since", "unless",
-        "while", "whereas", "either", "neither", "both", "whether", "not", "if", "even if", "even though", "common"
-        "as long as", "provided that", "whereas", "therefore", "thus", "hence", "meanwhile", "besides", "furthermore",
+        "while", "whereas", "either", "neither", "both", "whether", "not", "if", "even if", "even though", "common", "as long as",
+        "provided that", "whereas", "therefore", "thus", "hence", "meanwhile", "besides", "furthermore",
 
         # Prepositions (Location/Relation words that are often unnecessary)
         "about", "above", "across", "after", "against", "along", "among", "around", "as", "at",
-        "before", "behind", "below", "beneath", "beside", "between", "beyond", "by", "low", "high"
-        "despite", "down", "during", "except", "for", "from", "in", "inside", "into",
+        "before", "behind", "below", "beneath", "beside", "between", "beyond", "by", "low", "high", "despite", "down", "during",
+        "except", "for", "from", "in", "inside", "into",
         "like", "near", "of", "off", "on", "onto", "out", "outside", "over", "past",
         "since", "through", "throughout", "till", "to", "toward", "under", "underneath",
         "until", "up", "upon", "with", "within", "without", "aside from", "concerning", "regarding",
@@ -76,8 +77,8 @@ class DLM:
         "yo", "bruh", "dude", "bro", "sis", "mate", "fam", "nah", "yup", "nope", "welp",
 
         # Verbs Commonly Used in Questions (but don’t change meaning)
-        "do", "does", "did", "can", "could", "should", "shall", "will", "would", "may", "might", "must", "use"
-        "tell", "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe",
+        "do", "does", "did", "can", "could", "should", "shall", "will", "would", "may", "might", "must", "use", "tell",
+        "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe",
         "list", "give", "provide", "help", "make", "see", "mean", "understand", "point out", "stay", "look", "care"
 
         # Contracted Forms (Casual writing contractions)
@@ -120,18 +121,18 @@ class DLM:
 
         # gives personalized message to user when message is incomplete
         messages = [
-                "It looks like your thought isn't finished. Did you mean to continue?",
-                "Your sentence is incomplete. Do you want to add something?",
-                "Hmm, that seems unfinished. What were you about to say next?",
-                "Your input stops abruptly. What were you trying to express?",
-                "It sounds like something is missing. Want to complete your thought?",
-                "That feels incomplete. Can you clarify what you meant?",
-                "Your sentence ends weirdly. Were you about to add more?",
-                "That seems like it's missing a part. What comes after?",
-                "It sounds like you were going to say something else. Want to continue?"]
+            "It looks like your thought isn't finished. Did you mean to continue?",
+            "Your sentence is incomplete. Do you want to add something?",
+            "Hmm, that seems unfinished. What were you about to say next?",
+            "Your input stops abruptly. What were you trying to express?",
+            "It sounds like something is missing. Want to complete your thought?",
+            "That feels incomplete. Can you clarify what you meant?",
+            "Your sentence ends weirdly. Were you about to add more?",
+            "That seems like it's missing a part. What comes after?",
+            "It sounds like you were going to say something else. Want to continue?"]
         return random.choice(messages) if (len(userInput.split()) == 0) else None
 
-    def __filtered_input (self, userInput):
+    def __filtered_input(self, userInput):
         """ filter all the words using 'filler_words' list """
         # Tokenize user input (split into words)
         words = userInput.lower().split()
@@ -149,25 +150,34 @@ class DLM:
 
         # storing the user-query (filtered and lower-case)
         filtered_query = self.__filtered_input(self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
+
+        highest_similarity = 0;
+        best_match_answer = None # stores the best answer after o(n) iterations
         with open(self.__filename, "r") as file:
             for line in file:
+                # storing both the question and answer from database
+                stored_question, stored_answer = line.strip().split(">>", 1)
+                stored_question = stored_question.lower()
 
-                # storing the database line's query
-                stored_question = line.strip().split(">>")[0].lower()
+                # Calculate similarity
                 similarity = difflib.SequenceMatcher(None, stored_question, filtered_query).ratio()
 
-                # only accept a match if similarity is 80% or more
-                if similarity >= 0.80:
-                    print(f"\n{'\033[34m'}" + line.split(">>", 1)[1].strip() + f"{'\033[0m'}\n")
-                    self.__expectation = input("Is this what you expected (Y/N): ")
+                # Keep track of the best match
+                if similarity > highest_similarity:
+                    highest_similarity = similarity
+                    best_match_answer = stored_answer.strip()
 
-                    while not self.__expectation:
-                        self.__expectation = input("Empty input is not acceptable. Is this what you expected (Y/N): ")
+        # only accept a match if highest_similarity is 75% or more and best_match_answer is not None
+        if highest_similarity >= 0.75 and best_match_answer:
+            print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
+            self.__expectation = input("Is this what you expected (Y/N): ")
 
-                    if self.__expectation.lower() == "y":
-                        print("Great!")
-                        return
-                    break  # if incorrect, allow learning
+            while not self.__expectation:
+                self.__expectation = input("Empty input is not acceptable. Is this what you expected (Y/N): ")
+
+            if self.__expectation.lower() == "y":
+                print("Great!")
+                return
 
         incompleteness = self.__isIncomplete(filtered_query)
         if incompleteness != None:
@@ -175,13 +185,14 @@ class DLM:
             return
 
         if (trainingMode):
-            self.__expectation = input("I'm not sure. What was the expected response (training mode): ") # train DLM
+            self.__expectation = input("I'm not sure. What was the expected response (training mode): ")  # train DLM
 
             while not self.__expectation:
                 print("Nothing learnt. Moving on.")
                 return
 
-            self.__learn(filtered_query, self.__expectation) # learn this new question and answer pair and add to stored_data.txt
-            print("I learned something new!") # confirmation that it went through the whole process
+            self.__learn(filtered_query,
+                         self.__expectation)  # learn this new question and answer pair and add to stored_data.txt
+            print("I learned something new!")  # confirmation that it went through the whole process
         else:
             print(random.choice(self.__fallback_responses))
