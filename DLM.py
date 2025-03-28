@@ -137,13 +137,31 @@ class DLM:
         """ utilizes regular expressions to determine if userInput is incomplete """
         if (len(userInput.split())) < 2: return True
         cleaned_text = userInput.lower().strip()
+        # vague_patterns = [
+        #     r"^i want to know(?:\s*the\s*)?\b",
+        #     r"^i want to know(?:\s*the\s*)? difference\b",
+        #     r"^tell me(?:\s*the\s*)?\b",
+        #     r"^what is(?:\s*the\s*)?\b",
+        #     r"^give me(?:\s*the\s*)?\b",
+        #     r"^explain(?:\s*the\s*)?\b",
+        # ]
         vague_patterns = [
             r"^i want to know(?:\s*the\s*)?\b",
-            r"^i want to know(?:\s*the\s*)? difference\b",
             r"^tell me(?:\s*the\s*)?\b",
-            r"^what is(?:\s*the\s*)?\b",
-            r"^give me(?:\s*the\s*)?\b",
+            r"^what(?:’s| is| are| do)?\b",
+            r"^give(?:\s*me|\s*an example)?\b",
             r"^explain(?:\s*the\s*)?\b",
+            r"^how(?:\s*to| does)?\b",
+            r"^why(?:\s*does| is)?\b",
+            r"^where(?:\s*is| can i)?\b",
+            r"^when is\b",
+            r"^(can|could|would|should|do|does|is|are|am)\b",
+            r"^please(?:\s*tell me|\s*explain)?\b",
+            r"^show me\b",
+            r"^list\b",
+            r"^find\b",
+            r"^(recommend|suggest|identify|compare|contrast)\b",
+            r"^what to do\b"
         ]
         for pattern in vague_patterns:
             match = re.match(pattern, cleaned_text)
