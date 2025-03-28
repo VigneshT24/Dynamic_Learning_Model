@@ -2,7 +2,6 @@
 import difflib
 import string
 import random
-import re
 
 class DLM:
     __filename = "stored_data.txt"  # database
