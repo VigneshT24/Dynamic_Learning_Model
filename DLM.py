@@ -9,36 +9,23 @@ class DLM:
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
 
-    # personalized responses to let the user know that the input is incomplete
-    __responses_for_incomplete = [
-        "It looks like your thought isn't finished. Did you mean to continue?",
-        "Your sentence is incomplete. Did you mean to continue?",
-        "Hmm, that seems unfinished. Did you mean to continue?",
-        "Your input stops abruptly. Did you mean to continue?",
-        "It sounds like something is missing. Did you mean to continue?",
-        "That feels incomplete. Did you mean to continue?",
-        "Your sentence ends weirdly. Did you mean to continue?",
-        "That seems like it's missing a part. Did you mean to continue?",
-        "It sounds like you were going to say something else. Did you mean to continue?"
-    ]
-
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
-        "Hmm, that's a great question! I don't have the answer right now, but I'm always learning!",
-        "I'm still training my brain on that topic. Check back soon!",
-        "Oops! That one's not in my database yet, but I’ll work on adding it!",
-        "You got me this time! But I'm taking notes for the future!",
-        "That's a tough one! Let me do some more learning and get back to you.",
-        "I don't have the answer just yet, but I bet it’s out there somewhere!",
-        "Hmm... I’ll have to hit the books for that one!",
-        "I haven't learned that yet, but I'm constantly improving!",
-        "You just stumped me! But no worries, I’m always evolving!",
-        "That’s outside my knowledge base for now, but I appreciate the challenge!",
-        "I wish I had the answer! But hey, this means there's more for me to learn!",
-        "I’m not sure about that one. Try another query.",
-        "Hmm, I don’t have an answer yet. But if you find out, let me know!",
-        "Still learning this one! Sorry...",
-        "I don’t have that in my knowledge bank yet, but I’m working on it!"
+        "Hmm, that's a great question! I might need more context or details to answer it.",
+        "I'm still training my brain on that topic. Could you clarify what you mean?",
+        "Oops! That one's not in my database yet, or maybe it's phrased in a way I don't recognize!",
+        "You got me this time! Could you try rewording it so I can understand better?",
+        "That's a tough one! I might need a bit more information to figure it out.",
+        "I don't have the answer just yet, but I bet it’s out there somewhere! Could you rephrase it?",
+        "Hmm... I’ll have to hit the books for that one! Or maybe I just need a little more context?",
+        "I haven't learned that yet, but I'm constantly improving! Maybe try a different wording?",
+        "You just stumped me! But no worries, I’m always evolving—maybe I misinterpreted the question?",
+        "That’s outside my knowledge base for now, or maybe I'm just not parsing it right!",
+        "I wish I had the answer! If it’s incomplete, could you add more details?",
+        "I’m not sure about that one. Maybe try breaking it down into smaller parts?",
+        "Hmm, I don’t have an answer yet. Could you reword or give more details?",
+        "Still learning this one! If something’s missing, feel free to add more context.",
+        "I don’t have that in my knowledge bank yet, or maybe I'm missing part of the question!"
     ]
 
     # words to be filtered from user input for better accuracy and fewer distractions
@@ -64,7 +51,7 @@ class DLM:
         "used", "shallnt", "shouldve", "wouldve", "couldve", "mustve", "mightve", "mustnt", "good",
 
         # Conjunctions (Connectors that do not change meaning)
-        "and", "but", "or",
+        "and", "but", "or", "gotten",
         "nor", "so", "for", "yet", "although", "though", "because", "since", "unless",
         "while", "whereas", "either", "neither", "both", "whether", "not", "if", "even if", "even though", "common",
         "as long as",
@@ -81,7 +68,7 @@ class DLM:
 
         # Common Adverbs (Time words and intensity words that add fluff)
         "way", "ways", "again", "already", "also", "always", "ever", "never", "just", "now", "often",
-        "once", "only", "quite", "rather", "really", "seldom", "sometimes", "soon",
+        "once", "only", "quite", "rather", "really", "seldom", "sometimes", "soon", "got",
         "still", "then", "there", "therefore", "thus", "too", "very", "well", "anytime",
         "hardly", "barely", "scarcely", "seriously", "truly", "frankly", "honestly", "basically", "literally",
         "definitely", "obviously", "surely", "likely", "probably", "certainly", "clearly", "undoubtedly",
@@ -133,38 +120,6 @@ class DLM:
         with open(self.__filename, "a") as file:
             file.write("\n" + query + ">>" + expectation)
 
-    def __is_incomplete(self, userInput):
-        """ utilizes regular expressions to determine if userInput is incomplete """
-        if (len(userInput.split())) < 2: return True
-        cleaned_text = userInput.lower().strip()
-        vague_patterns = [
-            r"^i want to know(?:\s*the\s*)?\b",
-            r"^tell me(?:\s*the\s*)?\b",
-            r"^what(?:’s| is| are| do)?\b",
-            r"^give(?:\s*me|\s*an example)?\b",
-            r"^explain(?:\s*the\s*)?\b",
-            r"^how(?:\s*to| does)?\b",
-            r"^why(?:\s*does| is)?\b",
-            r"^where(?:\s*is| can i)?\b",
-            r"^when is\b",
-            r"^(can|could|would|should|do|does|is|are|am)\b",
-            r"^please(?:\s*tell me|\s*explain)?\b",
-            r"^show me\b",
-            r"^list\b",
-            r"^find\b",
-            r"^(recommend|suggest|identify|compare|contrast)\b",
-            r"^what to do\b"
-        ]
-        for pattern in vague_patterns:
-            match = re.match(pattern, cleaned_text)
-            if match:
-                # Check the remaining text after the matched phrase
-                remaining_text = cleaned_text[match.end():].strip()
-                # Consider it vague if no more meaningful words are present
-                if not remaining_text or len(remaining_text.split()) < 3:
-                    return True
-        return False
-
     def __filtered_input(self, userInput):
         """ filter all the words using 'filler_words' list """
         # Tokenize user input (split into words)
@@ -180,10 +135,6 @@ class DLM:
         """ Main method in which the user is able to ask any query and DLM will either answer it or learn it """
         print("\nTRAINING MODE") if (trainingMode == True) else print("\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
-
-        if (self.__is_incomplete(self.__query)):
-            print(f"\n{'\033[34m'}\"{self.__query.translate(str.maketrans('', '', string.punctuation))}\" of what? {random.choice(self.__responses_for_incomplete)}{'\033[0m'}\n")
-            return
 
         # storing the user-query (filtered and lower-case)
         filtered_query = self.__filtered_input(self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
@@ -204,8 +155,8 @@ class DLM:
                     highest_similarity = similarity
                     best_match_answer = stored_answer.strip()
 
-        # only accept a match if highest_similarity is 60% or more and best_match_answer is not None
-        if highest_similarity >= 0.60 and best_match_answer:
+        # only accept a match if highest_similarity is 65% or more and best_match_answer is not None
+        if highest_similarity >= 0.65 and best_match_answer:
             print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
             if trainingMode:
                 self.__expectation = input("Is this what you expected (Y/N): ")
