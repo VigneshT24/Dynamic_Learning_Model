@@ -2,12 +2,25 @@
 import difflib
 import string
 import random
-
+import re
 
 class DLM:
     __filename = "stored_data.txt"  # database
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
+
+    # personalized responses to let the user know that the input is incomplete
+    __responses_for_incomplete = [
+        "It looks like your thought isn't finished. Did you mean to continue?",
+        "Your sentence is incomplete. Do you want to add something?",
+        "Hmm, that seems unfinished. What were you about to say next?",
+        "Your input stops abruptly. What were you trying to express?",
+        "It sounds like something is missing. Want to complete your thought?",
+        "That feels incomplete. Can you clarify what you meant?",
+        "Your sentence ends weirdly. Were you about to add more?",
+        "That seems like it's missing a part. What comes after?",
+        "It sounds like you were going to say something else. Want to continue?"
+    ]
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -47,7 +60,7 @@ class DLM:
         "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do",
         "does",
         "did", "doing", "shall", "should", "will", "would", "can", "could", "may", "might", "must", "bad", "dare",
-        "need",
+        "need", "want",
         "used", "shallnt", "shouldve", "wouldve", "couldve", "mustve", "mightve", "mustnt", "good",
 
         # Conjunctions (Connectors that do not change meaning)
@@ -120,23 +133,26 @@ class DLM:
         with open(self.__filename, "a") as file:
             file.write("\n" + query + ">>" + expectation)
 
-    def __isIncomplete(self, userInput):
-        """ if the filtered userInput is empty, that would mean that there were only filler words, therefore denoting as incomplete """
-        if not isinstance(userInput, str):
-            raise TypeError("Expected a string input.")
-
-        # gives personalized message to user when message is incomplete
-        messages = [
-            "It looks like your thought isn't finished. Did you mean to continue?",
-            "Your sentence is incomplete. Do you want to add something?",
-            "Hmm, that seems unfinished. What were you about to say next?",
-            "Your input stops abruptly. What were you trying to express?",
-            "It sounds like something is missing. Want to complete your thought?",
-            "That feels incomplete. Can you clarify what you meant?",
-            "Your sentence ends weirdly. Were you about to add more?",
-            "That seems like it's missing a part. What comes after?",
-            "It sounds like you were going to say something else. Want to continue?"]
-        return random.choice(messages) if (len(userInput.split()) == 0) else None
+    def __is_incomplete(self, userInput):
+        if (len(userInput.split())) < 2: return True
+        cleaned_text = userInput.lower().strip()
+        vague_patterns = [
+            r"^i want to know(?:\s*the\s*)?\b",
+            r"^i want to know(?:\s*the\s*)? difference\b",
+            r"^tell me(?:\s*the\s*)?\b",
+            r"^what is(?:\s*the\s*)?\b",
+            r"^give me(?:\s*the\s*)?\b",
+            r"^explain(?:\s*the\s*)?\b",
+        ]
+        for pattern in vague_patterns:
+            match = re.match(pattern, cleaned_text)
+            if match:
+                # Check the remaining text after the matched phrase
+                remaining_text = cleaned_text[match.end():].strip()
+                # Consider it vague if no more meaningful words are present
+                if not remaining_text or len(remaining_text.split()) < 3:
+                    return True
+        return False
 
     def __filtered_input(self, userInput):
         """ filter all the words using 'filler_words' list """
@@ -153,6 +169,10 @@ class DLM:
         """ Main method in which the user is able to ask any query and DLM will either answer it or learn it """
         print("\nTRAINING MODE") if (trainingMode == True) else print("\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
+
+        if (self.__is_incomplete(self.__query)):
+            print(f"\n{'\033[34m'}\"{self.__query.translate(str.maketrans('', '', string.punctuation))}\" of what? {random.choice(self.__responses_for_incomplete)}{'\033[0m'}\n")
+            return
 
         # storing the user-query (filtered and lower-case)
         filtered_query = self.__filtered_input(self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
@@ -187,11 +207,6 @@ class DLM:
                     return
             else:
                 return
-
-        incompleteness = self.__isIncomplete(filtered_query)
-        if incompleteness != None:
-            print(str(incompleteness))
-            return
 
         # only executes if training option is TRUE
         if (trainingMode):
