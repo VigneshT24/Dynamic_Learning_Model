@@ -137,14 +137,6 @@ class DLM:
         """ utilizes regular expressions to determine if userInput is incomplete """
         if (len(userInput.split())) < 2: return True
         cleaned_text = userInput.lower().strip()
-        # vague_patterns = [
-        #     r"^i want to know(?:\s*the\s*)?\b",
-        #     r"^i want to know(?:\s*the\s*)? difference\b",
-        #     r"^tell me(?:\s*the\s*)?\b",
-        #     r"^what is(?:\s*the\s*)?\b",
-        #     r"^give me(?:\s*the\s*)?\b",
-        #     r"^explain(?:\s*the\s*)?\b",
-        # ]
         vague_patterns = [
             r"^i want to know(?:\s*the\s*)?\b",
             r"^tell me(?:\s*the\s*)?\b",
