@@ -98,7 +98,7 @@ class DLM:
         # Verbs Commonly Used in Questions (but don’t change meaning)
         "go", "do", "dont", "does", "did", "can", "can't", "could", "couldnt", "should", "shouldnt", "shall", "will", "would", "wouldnt", "may", "might", "must", "use", "tell",
         "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe", "take",
-        "list", "give", "provide", "help", "make", "see", "mean", "understand", "point out", "stay", "look", "care",
+        "list", "give", "provide", "make", "see", "mean", "understand", "point out", "stay", "look", "care",
 
         # Contracted Forms (Casual writing contractions),
         "ill", "im", "ive", "youd", "youll", "youre", "youve", "hed", "hell", "hes",
