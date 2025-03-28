@@ -12,14 +12,14 @@ class DLM:
     # personalized responses to let the user know that the input is incomplete
     __responses_for_incomplete = [
         "It looks like your thought isn't finished. Did you mean to continue?",
-        "Your sentence is incomplete. Do you want to add something?",
-        "Hmm, that seems unfinished. What were you about to say next?",
-        "Your input stops abruptly. What were you trying to express?",
-        "It sounds like something is missing. Want to complete your thought?",
-        "That feels incomplete. Can you clarify what you meant?",
-        "Your sentence ends weirdly. Were you about to add more?",
-        "That seems like it's missing a part. What comes after?",
-        "It sounds like you were going to say something else. Want to continue?"
+        "Your sentence is incomplete. Did you mean to continue?",
+        "Hmm, that seems unfinished. Did you mean to continue?",
+        "Your input stops abruptly. Did you mean to continue?",
+        "It sounds like something is missing. Did you mean to continue?",
+        "That feels incomplete. Did you mean to continue?",
+        "Your sentence ends weirdly. Did you mean to continue?",
+        "That seems like it's missing a part. Did you mean to continue?",
+        "It sounds like you were going to say something else. Did you mean to continue?"
     ]
 
     # personalized responses to let the user know that the bot doesn't know the answer
@@ -134,6 +134,7 @@ class DLM:
             file.write("\n" + query + ">>" + expectation)
 
     def __is_incomplete(self, userInput):
+        """ utilizes regular expressions to determine if userInput is incomplete """
         if (len(userInput.split())) < 2: return True
         cleaned_text = userInput.lower().strip()
         vague_patterns = [
