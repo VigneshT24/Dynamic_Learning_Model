@@ -4,7 +4,7 @@ import string
 import random
 
 class DLM:
-    __filename = "stored_data.txt"  # database
+    __filename = "stored_data.txt"  # knowledge-base
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
 
