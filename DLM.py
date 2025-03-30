@@ -2,11 +2,13 @@
 import difflib
 import string
 import random
+import spacy
 
 class DLM:
     __filename = "stored_data.txt"  # knowledge-base
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
+    __nlp = spacy.load("en_core_web_md") # spacy NLP analysis
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -114,6 +116,30 @@ class DLM:
         "so", "then", "therefore", "thus", "anyway", "besides", "moreover", "furthermore", "meanwhile"
     ]
 
+    def __semantic_similarity(self, userInput, knowledgebaseData):
+        """ semantically analyzes user input and database's best match to see if they can still match using Spacy """
+        # break parameter inputs into list of words
+        UI_list = userInput.lower().split()
+        KB_list = knowledgebaseData.lower().split()
+
+        # Initialize match count
+        match_count = 0
+
+        for user_word in UI_list:
+            user_token = self.__nlp(user_word)
+            for knowledge_word in KB_list:
+                knowledge_token = self.__nlp(knowledge_word)
+                # Use Spacy's similarity function to check semantic similarity
+                if user_token.similarity(knowledge_token) > 0.7: # similarity must be over 70%
+                    match_count += 1
+                    break  # Stop checking this word as it has found a match
+
+        # Calculate the match ratio
+        match_ratio = match_count / len(KB_list)
+        if (match_ratio >= 75):
+            return True
+        return False
+
     def __learn(self, query, expectation):
         """ Stores the new query and expectation pair in stored_data.txt """
         with open(self.__filename, "a") as file:
@@ -168,6 +194,21 @@ class DLM:
                     return
             else:
                 return
+        elif best_match_answer:
+            match_ratio = self.__semantic_similarity(filtered_query, best_match_answer)
+            if (match_ratio):
+                print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
+                if trainingMode:
+                    self.__expectation = input("Is this what you expected (Y/N): ")
+
+                    while not self.__expectation:
+                        self.__expectation = input("Empty input is not acceptable. Is this what you expected (Y/N): ")
+
+                    if self.__expectation.lower() == "y":
+                        print("Great!")
+                        return
+                else:
+                    return
 
         # only executes if training option is TRUE
         if (trainingMode):
