@@ -8,7 +8,7 @@ class DLM:
     __filename = "stored_data.txt"  # knowledge-base
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
-    __nlp = spacy.load("en_core_web_md") # spacy NLP analysis
+    __nlp = spacy.load("en_core_web_md") # Spacy NLP analysis
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -194,7 +194,7 @@ class DLM:
                     return
             else:
                 return
-        elif best_match_answer:
+        elif best_match_answer: # user might have used synonyms of words stored in knowledgebase, only semantically recognizable
             match_ratio = self.__semantic_similarity(filtered_query, best_match_answer)
             if (match_ratio):
                 print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
