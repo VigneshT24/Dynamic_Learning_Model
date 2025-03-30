@@ -180,8 +180,8 @@ class DLM:
                     highest_similarity = similarity
                     best_match_answer = stored_answer.strip()
 
-        # only accept a match if highest_similarity is 65% or more and best_match_answer is not None
-        if highest_similarity >= 0.65 and best_match_answer:
+        # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
+        if (highest_similarity >= 0.65 or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_answer))):
             print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
             if trainingMode:
                 self.__expectation = input("Is this what you expected (Y/N): ")
@@ -194,21 +194,6 @@ class DLM:
                     return
             else:
                 return
-        elif best_match_answer: # user might have used synonyms of words stored in knowledgebase, only semantically recognizable
-            match_ratio = self.__semantic_similarity(filtered_query, best_match_answer)
-            if (match_ratio):
-                print(f"\n{'\033[34m'}" + best_match_answer + f"{'\033[0m'}\n")
-                if trainingMode:
-                    self.__expectation = input("Is this what you expected (Y/N): ")
-
-                    while not self.__expectation:
-                        self.__expectation = input("Empty input is not acceptable. Is this what you expected (Y/N): ")
-
-                    if self.__expectation.lower() == "y":
-                        print("Great!")
-                        return
-                else:
-                    return
 
         # only executes if training option is TRUE
         if (trainingMode):
