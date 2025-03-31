@@ -84,7 +84,8 @@ class DLM:
         "yo", "bruh", "dude", "bro", "sis", "mate", "fam", "nah", "yup", "nope", "welp",
 
         # verbs commonly used in questions (but don’t change meaning)
-        "go", "do", "dont", "does", "did", "can", "can't", "could", "couldnt", "should", "shouldnt", "shall", "will", "would", "wouldnt", "may", "might", "must", "use", "tell",
+        "go", "do", "dont", "does", "did", "can", "can't", "could", "couldnt", "should", "shouldnt", "shall", "will",
+        "would", "wouldnt", "may", "might", "must", "use", "tell",
         "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe", "take",
         "list", "give", "provide", "make", "see", "mean", "understand", "point out", "stay", "look", "care",
 
@@ -115,21 +116,24 @@ class DLM:
         # overused transitions
         "so", "then", "therefore", "thus", "anyway", "besides", "moreover", "furthermore", "meanwhile"
     ]
-    
+
     def __init__(self, filename):  # constructor that initializes knowledge base & Spacy NLP
         self.__nlp = spacy.load("en_core_web_md")
         self.__filename = filename
 
     def __filtered_input(self, userInput):  # returns filtered string
-        """ filter all the words from 'filler_words' list """
+        """ Filter all the words from 'filler_words' list and remove duplicates """
         # tokenize user input (split into words)
         words = userInput.lower().split()
 
         # remove filler words
         filtered_words = [word for word in words if word.lower() not in self.__filler_words]
 
+        # remove duplicates while preserving order
+        unique_words = list(dict.fromkeys(filtered_words))
+
         # join the remaining words back into a string
-        return " ".join(filtered_words)
+        return " ".join(unique_words)
 
     def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
         """ semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
@@ -166,7 +170,8 @@ class DLM:
         self.__query = input("DLM Bot here, ask away: ")
 
         # storing the user-query (filtered and lower-case)
-        filtered_query = self.__filtered_input(self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
+        filtered_query = self.__filtered_input(
+            self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
 
         highest_similarity = 0
         best_match_answer = None  # stores the best answer after O(n) iterations
