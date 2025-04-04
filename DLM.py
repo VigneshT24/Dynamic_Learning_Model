@@ -155,7 +155,7 @@ class DLM:
 
         # calculate the match ratio
         match_ratio = match_count / len(KB_list)
-        if (match_ratio >= 75):
+        if (match_ratio >= 0.65):
             return True
         return False
 
