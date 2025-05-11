@@ -33,7 +33,7 @@ class DLM:
     __filler_words = [
 
         # articles & determiners (words that don't add meaning to sentence)
-        "a", "an", "the", "some", "any", "each", "every", "either", "neither", "this", "that", "these", "those",
+        "a", "an", "the", "some", "any", "many", "each", "every", "either", "neither", "this", "that", "these", "those",
         "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all",
 
         # pronouns (general pronouns that don’t change meaning)
@@ -149,9 +149,10 @@ class DLM:
             for knowledge_word in KB_list:
                 knowledge_token = self.__nlp(knowledge_word)
                 # use Spacy's similarity function to check semantic similarity
-                if user_token.similarity(knowledge_token) > 0.7:  # similarity must be over 70%
-                    match_count += 1
-                    break  # stop checking this word as it has found a match
+                if knowledge_token is not None:
+                    if user_token.similarity(knowledge_token) > 0.7:  # similarity must be over 70%
+                        match_count += 1
+                        break  # stop checking this word as it has found a match
 
         # calculate the match ratio
         match_ratio = match_count / len(KB_list)
