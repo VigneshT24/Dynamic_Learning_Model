@@ -127,9 +127,9 @@ class DLM:
         "have",       "has",        "had",        "can",
         "could",      "will",       "would",      "shall",
         "should",     "may",        "might",      "must",
-        "show",       "list",       "give",       "how"
+        "show",       "list",       "give",       "how", "i"
     ]
-    
+
     # special words that the bot can mention while it is thinking
     __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate"]
 
@@ -173,28 +173,31 @@ class DLM:
 
     def __generate_thought(self, filtered_query, best_match_question,best_match_answer, highest_similarity):
         """ allows the bot to "think out loud" by showing thought process step by step, like what it understood and if it knows the answer or not"""
-        interrogative_start = filtered_query.split()[0]
-        identifier = filtered_query.split()[1:]
-        special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation"] # special word in different form
-
-        print("\nThought Process:")
-        if (" ".join(identifier) == ""):
-            print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+        if (filtered_query is None or filtered_query == ""):
+            return
         else:
-            print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and is asking about \"{" ".join(identifier)}\".{'\033[0m'}")
-        self.__loadingAnimation("Let me think about this carefully")
+            interrogative_start = filtered_query.split()[0]
+            identifier = filtered_query.split()[1:]
+            special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation"] # special word in different form
 
-        for s in special_start:
-            for u in filtered_query.split():
-                if (difflib.SequenceMatcher(None, u, s).ratio() > 0.5):
-                    print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
+            print("\nThought Process:")
+            if (" ".join(identifier) == ""):
+                print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+            else:
+                print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and is asking about \"{" ".join(identifier)}\".{'\033[0m'}")
+            self.__loadingAnimation("Let me think about this carefully")
 
-        if (best_match_answer is None) or (highest_similarity < 0.65):
-            print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
-        else:
-            DB_identifier = best_match_question.split()[1:]
-            print(f"{'\033[33m'}Ah ha! I do remember learning about \"{" ".join(DB_identifier)}\" and I might have the right answer!{'\033[0m'}")
-            self.__loadingAnimation("Let me recall the answer")
+            for s in special_start:
+                for u in filtered_query.split():
+                    if (difflib.SequenceMatcher(None, u, s).ratio() > 0.6):
+                        print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
+
+            if (best_match_answer is None) or (highest_similarity < 0.65):
+                print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
+            else:
+                DB_identifier = best_match_question.split()[1:]
+                print(f"{'\033[33m'}Ah ha! I do remember learning about \"{" ".join(DB_identifier)}\" and I might have the right answer!{'\033[0m'}")
+                self.__loadingAnimation("Let me recall the answer")
         print("\n")
 
     def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
@@ -264,7 +267,7 @@ class DLM:
                 self.__expectation = input("Is this what you expected (Y/N): ")
 
                 while not self.__expectation:  # if nothing entered, ask until question answered
-                    self.__expectation = input("Empty input is not acceptable. Is this what you expected (Y/N): ")
+                    self.__expectation = input("Empty input is unacceptable. Is this what you expected (Y/N): ")
 
                 if self.__expectation.lower() == "y":
                     print("Great!")
@@ -273,6 +276,8 @@ class DLM:
                 return
 
         # only executes if training option is TRUE
+        if (filtered_query is None or filtered_query == ""):
+            self.query = input("Empty input is unacceptable. Please enter something: ")
         if (trainingMode):
             self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM
 
