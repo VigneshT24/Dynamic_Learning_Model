@@ -35,7 +35,7 @@ class DLM:
 
         # articles & determiners (words that don't add meaning to sentence)
         "a", "an", "the", "some", "any", "many", "each", "every", "either", "neither", "this", "that", "these", "those",
-        "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all",
+        "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all", "something",
 
         # pronouns (general pronouns that don’t change meaning)
         "i", "me", "my", "mine",
@@ -129,7 +129,8 @@ class DLM:
         "should",     "may",        "might",      "must",
         "show",       "list",       "give",       "how"
     ]
-
+    
+    # special words that the bot can mention while it is thinking
     __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate"]
 
     def __init__(self, filename):  # constructor that initializes knowledge base & Spacy NLP
@@ -170,14 +171,14 @@ class DLM:
             print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
             time.sleep(0.8)
 
-    def __generate_thought(self, filtered_query, best_match_answer, highest_similarity):
+    def __generate_thought(self, filtered_query, best_match_question,best_match_answer, highest_similarity):
         """ allows the bot to "think out loud" by showing thought process step by step, like what it understood and if it knows the answer or not"""
         interrogative_start = filtered_query.split()[0]
         identifier = filtered_query.split()[1:]
         special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation"] # special word in different form
 
         print("\nThought Process:")
-        if " ".join(identifier) == "":
+        if (" ".join(identifier) == ""):
             print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
         else:
             print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and is asking about \"{" ".join(identifier)}\".{'\033[0m'}")
@@ -191,7 +192,8 @@ class DLM:
         if (best_match_answer is None) or (highest_similarity < 0.65):
             print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
         else:
-            print(f"{'\033[33m'}Ah ha! I do remember learning about \"{" ".join(identifier)}\" and I might have the right answer!{'\033[0m'}")
+            DB_identifier = best_match_question.split()[1:]
+            print(f"{'\033[33m'}Ah ha! I do remember learning about \"{" ".join(DB_identifier)}\" and I might have the right answer!{'\033[0m'}")
             self.__loadingAnimation("Let me recall the answer")
         print("\n")
 
@@ -236,6 +238,7 @@ class DLM:
 
         highest_similarity = 0
         best_match_answer = None  # stores the best answer after O(n) iterations
+        best_match_question = None
         with open(self.__filename, "r") as file:
             for line in file:
                 # storing both the question and answer from database
@@ -248,10 +251,11 @@ class DLM:
                 # keep track of the best match
                 if similarity > highest_similarity:
                     highest_similarity = similarity
+                    best_match_question = stored_question.strip()
                     best_match_answer = stored_answer.strip()
 
         # "Thinking Out Loud" Feature
-        self.__generate_thought(filtered_query, best_match_answer, highest_similarity)
+        self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if (highest_similarity >= 0.65) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_answer)):
@@ -278,5 +282,5 @@ class DLM:
 
             self.__learn(filtered_query, self.__expectation)  # learn this new question and answer pair and add to stored_data.txt
             print("I learned something new!")  # confirmation that it went through the whole process
-        else:  # only executes when not in commercial mode and bot cannot find the answer
+        else:  # only executes when in commercial mode and bot cannot find the answer
             print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
