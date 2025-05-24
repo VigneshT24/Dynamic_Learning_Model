@@ -192,12 +192,12 @@ class DLM:
         """ Looks through unfiltered, original input to see the tone of the query (angry, confused, uncertain, etc) """
         if (orig_input == orig_input.upper()):
             self.__tone = "angry frustrated"
+        elif (orig_input.__contains__("?") and orig_input.__contains__("!")):
+            self.__tone = "angry confused"
         elif (orig_input.__contains__("!")):
             self.__tone = "angry excited"
         elif (orig_input.__contains__("?")):
-            self.__tone = "confused clarify"
-        elif (orig_input.__contains__("?") and orig_input.__contains__("!")):
-            self.__tone = "angry confused"
+            self.__tone = "confused unclear"
         elif (orig_input.__contains__("...") or orig_input.__contains__("..")):
             self.__tone = "doubtful uncertain"
         else:
