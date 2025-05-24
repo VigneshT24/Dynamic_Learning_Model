@@ -35,7 +35,7 @@ class DLM:
 
         # articles & determiners (words that don't add meaning to sentence)
         "a", "an", "the", "some", "any", "many", "each", "every", "either", "neither", "this", "that", "these", "those",
-        "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all", "something",
+        "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all", "something", "possible",
 
         # pronouns (general pronouns that don’t change meaning)
         "i", "me", "my", "mine",
@@ -85,7 +85,7 @@ class DLM:
 
         # verbs commonly used in questions (but don’t change meaning)
         "go", "do", "dont", "does", "did", "can", "can't", "could", "couldnt", "should", "shouldnt", "shall", "will",
-        "would", "wouldnt", "may", "might", "must", "use", "tell",
+        "would", "wouldnt", "may", "might", "must", "use", "tell", "thinking",
         "please", "say", "let", "know", "consider", "find", "show", "take", "working",
         "list", "give", "provide", "make", "see", "mean", "understand", "point out", "stay", "look", "care", "work",
 
