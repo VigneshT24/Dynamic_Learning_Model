@@ -3,6 +3,7 @@ import difflib
 import string
 import random
 import spacy
+import time
 
 class DLM:
     __filename = None  # knowledge-base
@@ -45,8 +46,7 @@ class DLM:
         "whoever", "wherever", "whenever", "whosoever", "others", "oneself",
 
         # auxiliary (helping) verbs (do not contribute meaning)
-        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do",
-        "does",
+        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do", "does",
         "did", "doing", "shall", "should", "will", "would", "can", "could", "may", "might", "must", "bad", "dare",
         "need", "want",
         "used", "shallnt", "shouldve", "wouldve", "couldve", "mustve", "mightve", "mustnt", "good",
@@ -86,8 +86,8 @@ class DLM:
         # verbs commonly used in questions (but don’t change meaning)
         "go", "do", "dont", "does", "did", "can", "can't", "could", "couldnt", "should", "shouldnt", "shall", "will",
         "would", "wouldnt", "may", "might", "must", "use", "tell",
-        "please", "say", "let", "know", "consider", "find", "show", "explain", "define", "describe", "take",
-        "list", "give", "provide", "make", "see", "mean", "understand", "point out", "stay", "look", "care",
+        "please", "say", "let", "know", "consider", "find", "show", "take",
+        "list", "give", "provide", "make", "see", "mean", "understand", "point out", "stay", "look", "care", "work",
 
         # contracted forms (casual writing contractions),
         "ill", "im", "ive", "youd", "youll", "youre", "youve", "hed", "hell", "hes",
@@ -117,6 +117,21 @@ class DLM:
         "so", "then", "therefore", "thus", "anyway", "besides", "moreover", "furthermore", "meanwhile"
     ]
 
+    # used for "thinking out loud" feature
+    # [define, explain, describe, compare, calculate, translate] are "special" starters
+    __exception_fillers = [
+        "who",        "whom",       "whose",      "what",
+        "which",      "when",       "where",      "why",
+        "is",         "are",        "am",         "was",
+        "were",       "do",         "does",       "did",
+        "have",       "has",        "had",        "can",
+        "could",      "will",       "would",      "shall",
+        "should",     "may",        "might",      "must",
+        "show",       "list",       "give",       "how"
+    ]
+
+    __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate"]
+
     def __init__(self, filename):  # constructor that initializes knowledge base & Spacy NLP
         self.__nlp = spacy.load("en_core_web_md")
         self.__filename = filename
@@ -127,13 +142,55 @@ class DLM:
         words = userInput.lower().split()
 
         # remove filler words
-        filtered_words = [word for word in words if word.lower() not in self.__filler_words]
+        filtered_words = []
+        for i, word in enumerate(words):
+            word_lowered = word.lower()
+
+            # allow exceptions ONLY in first position:
+            if i == 0 and word_lowered in self.__exception_fillers:
+                filtered_words.append(word)
+
+            # otherwise, only keep non-fillers
+            elif word_lowered not in self.__filler_words:
+                filtered_words.append(word)
 
         # remove duplicates while preserving order
         unique_words = list(dict.fromkeys(filtered_words))
 
         # join the remaining words back into a string
         return " ".join(unique_words)
+
+    # ANSI escape for moving the cursor up N lines
+    def __move_cursor_up(self, lines):
+        print(f"\033[{lines}A", end="")
+
+    # loading animation for bot thought process
+    def __loadingAnimation(self, input):
+        for seconds in range(0, 3):
+            print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
+            time.sleep(0.8)
+
+    # experimental feature: allows the bot to "think out loud" by stating [type of question] + [parsed identifier]
+    def __generate_thought(self, filtered_query, best_match_answer):
+        interrogative_start = filtered_query.split()[0]
+        identifier = filtered_query.split()[1:]
+        special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation"] # special word in different form
+
+        print("\nThought Process:")
+        print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and is asking about \"{" ".join(identifier)}\".{'\033[0m'}")
+        self.__loadingAnimation("Let me think about this carefully")
+
+        for s in special_start:
+            for u in filtered_query.split():
+                if (difflib.SequenceMatcher(None, u, s).ratio() > 0.5):
+                    print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
+
+        if best_match_answer is None:
+            print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
+        else:
+            print(f"{'\033[33m'}Ah ha! I do remember learning about \"{" ".join(identifier)}\" and I might have the right answer!{'\033[0m'}")
+            self.__loadingAnimation("Let me recall the answer")
+        print("\n")
 
     def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
         """ semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
@@ -190,9 +247,12 @@ class DLM:
                     highest_similarity = similarity
                     best_match_answer = stored_answer.strip()
 
+        # "Thinking Out Loud" Feature
+        self.__generate_thought(filtered_query, best_match_answer)
+
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if (highest_similarity >= 0.65) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_answer)):
-            print(f"\n{'\033[34m'} {best_match_answer} {'\033[0m'}\n")
+            print(f"\n{'\033[34m'}{best_match_answer}{'\033[0m'}\n")
             if trainingMode:
                 self.__expectation = input("Is this what you expected (Y/N): ")
 
@@ -216,4 +276,4 @@ class DLM:
             self.__learn(filtered_query, self.__expectation)  # learn this new question and answer pair and add to stored_data.txt
             print("I learned something new!")  # confirmation that it went through the whole process
         else:  # only executes when not in commercial mode and bot cannot find the answer
-            print(random.choice(self.__fallback_responses))
+            print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
