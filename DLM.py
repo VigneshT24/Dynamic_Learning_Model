@@ -4,7 +4,6 @@ import string
 import random
 import spacy
 import time
-import os
 import sqlite3
 
 class DLM:
@@ -120,8 +119,7 @@ class DLM:
         "so", "then", "therefore", "thus", "anyway", "besides", "moreover", "furthermore", "meanwhile"
     ]
 
-    # used for "thinking out loud" feature
-    # [define, explain, describe, compare, calculate, translate] are "special" starters
+    # used for Chain-of-Thought (CoT) feature
     __exception_fillers = [
         "who",        "whom",       "whose",      "what",
         "which",      "when",       "where",      "why",
@@ -142,6 +140,7 @@ class DLM:
         self.__create_table_if_missing()
 
     def __create_table_if_missing(self): # creates a SQL Lite database if it is missing
+        """ initializes a new table if SQL table is missing (only used in constructor) """
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
         c.execute("""
@@ -153,6 +152,16 @@ class DLM:
         """)
         conn.commit()
         conn.close()
+
+    # ANSI escape for moving the cursor up N lines
+    def __move_cursor_up(self, lines): # no return, void
+        print(f"\033[{lines}A", end="")
+
+    # loading animation for bot thought process
+    def __loadingAnimation(self, input): # no return, void
+        for seconds in range(0, 3):
+            print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
+            time.sleep(0.8)
 
     def __filtered_input(self, userInput):  # returns filtered string
         """ Filter all the words from 'filler_words' list and remove duplicates """
@@ -178,17 +187,7 @@ class DLM:
         # join the remaining words back into a string
         return " ".join(unique_words)
 
-    # ANSI escape for moving the cursor up N lines
-    def __move_cursor_up(self, lines):
-        print(f"\033[{lines}A", end="")
-
-    # loading animation for bot thought process
-    def __loadingAnimation(self, input):
-        for seconds in range(0, 3):
-            print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
-            time.sleep(0.8)
-
-    def __set_sentiment_tone(self, orig_input):
+    def __set_sentiment_tone(self, orig_input): # no return, void
         """ Looks through unfiltered, original input to see the tone of the query (angry, confused, uncertain, etc) """
         if (orig_input == orig_input.upper()):
             self.__tone = "angry frustrated"
