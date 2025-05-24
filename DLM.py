@@ -10,6 +10,7 @@ class DLM:
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
     __nlp = None  # Spacy NLP analysis
+    __tone = None # sentimental tone of user query
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -171,16 +172,34 @@ class DLM:
             print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
             time.sleep(0.8)
 
-    def __generate_thought(self, filtered_query, best_match_question,best_match_answer, highest_similarity):
-        """ allows the bot to "think out loud" by showing thought process step by step, like what it understood and if it knows the answer or not"""
+    def __set_sentiment_tone(self, orig_input):
+        """ Looks through unfiltered, original input to see the tone of the query (angry, confused, uncertain, etc) """
+        if (orig_input == orig_input.upper()):
+            self.__tone = "angry frustrated"
+        elif (orig_input.__contains__("!")):
+            self.__tone = "angry excited"
+        elif (orig_input.__contains__("?")):
+            self.__tone = "confused clarify"
+        elif (orig_input.__contains__("?") and orig_input.__contains__("!")):
+            self.__tone = "angry confused"
+        elif (orig_input.__contains__("...") or orig_input.__contains__("..")):
+            self.__tone = "doubtful uncertain"
+        else:
+            self.__tone = ""
+
+    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
+        """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
         if (filtered_query is None or filtered_query == ""):
             return
         else:
             interrogative_start = filtered_query.split()[0]
             identifier = filtered_query.split()[1:]
             special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation"] # special word in different form
+            sentiment_tone = self.__tone.split()
 
             print("\nThought Process:")
+            if (self.__tone != ""):
+                print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
             if (" ".join(identifier) == ""):
                 print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
             else:
@@ -201,7 +220,7 @@ class DLM:
         print("\n")
 
     def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
-        """ semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
+        """ Semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
         # break parameter inputs into list of words
         UI_list = userInput.lower().split()
         KB_list = knowledgebaseData.lower().split()
@@ -226,14 +245,16 @@ class DLM:
         return False
 
     def __learn(self, query, expectation):  # no return, void
-        """ stores the new query and answer pair in stored_data.txt """
+        """ Stores the new query and answer pair in stored_data.txt """
         with open(self.__filename, "a") as file:
             file.write("\n" + query + ">>" + expectation)
 
     def ask(self, trainingMode):  # no return, void
-        """ main method in which the user is able to ask any query and DLM will either answer it or learn it """
+        """ Main method in which the user is able to ask any query and DLM will either answer it or learn it """
         print("\nTRAINING MODE") if (trainingMode == True) else print("\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
+
+        self.__set_sentiment_tone(self.__query) # sets global variable sentiment tone
 
         # storing the user-query (filtered and lower-case)
         filtered_query = self.__filtered_input(
