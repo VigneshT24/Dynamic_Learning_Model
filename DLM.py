@@ -254,6 +254,9 @@ class DLM:
         print("\nTRAINING MODE") if (trainingMode == True) else print("\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
 
+        while (self.__query is None or self.__query == ""):
+            self.query = input("Empty input is unacceptable. Please enter something: ")
+
         self.__set_sentiment_tone(self.__query) # sets global variable sentiment tone
 
         # storing the user-query (filtered and lower-case)
@@ -297,8 +300,6 @@ class DLM:
                 return
 
         # only executes if training option is TRUE
-        if (filtered_query is None or filtered_query == ""):
-            self.query = input("Empty input is unacceptable. Please enter something: ")
         if (trainingMode):
             self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM
 
