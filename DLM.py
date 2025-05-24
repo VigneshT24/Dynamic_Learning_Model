@@ -4,9 +4,11 @@ import string
 import random
 import spacy
 import time
+import os
+import sqlite3
 
 class DLM:
-    __filename = None  # knowledge-base
+    __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
     __nlp = None  # Spacy NLP analysis
@@ -134,9 +136,23 @@ class DLM:
     # special words that the bot can mention while it is thinking
     __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate"]
 
-    def __init__(self, filename):  # constructor that initializes knowledge base & Spacy NLP
+    def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
         self.__nlp = spacy.load("en_core_web_md")
-        self.__filename = filename
+        self.__filename = db_filename
+        self.__create_table_if_missing()
+
+    def __create_table_if_missing(self): # creates a SQL Lite database if it is missing
+        conn = sqlite3.connect(self.__filename)
+        c = conn.cursor()
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS knowledge_base (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question TEXT NOT NULL UNIQUE,
+            answer   TEXT NOT NULL
+        )
+        """)
+        conn.commit()
+        conn.close()
 
     def __filtered_input(self, userInput):  # returns filtered string
         """ Filter all the words from 'filler_words' list and remove duplicates """
@@ -245,9 +261,15 @@ class DLM:
         return False
 
     def __learn(self, query, expectation):  # no return, void
-        """ Stores the new query and answer pair in stored_data.txt """
-        with open(self.__filename, "a") as file:
-            file.write("\n" + query + ">>" + expectation)
+        """ Stores the new query and answer pair in SQL file """
+        conn = sqlite3.connect(self.__filename)
+        c = conn.cursor()
+        c.execute(
+            "INSERT OR IGNORE INTO knowledge_base (question, answer) VALUES (?, ?)",
+            (query, expectation)
+        )
+        conn.commit()
+        conn.close()
 
     def ask(self, trainingMode):  # no return, void
         """ Main method in which the user is able to ask any query and DLM will either answer it or learn it """
@@ -263,25 +285,24 @@ class DLM:
         filtered_query = self.__filtered_input(
             self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
 
+        conn = sqlite3.connect(self.__filename)
+        cursor = conn.cursor()
+        cursor.execute("SELECT question, answer FROM knowledge_base")
+        rows = cursor.fetchall()
+        conn.close()
+
         highest_similarity = 0
         best_match_answer = None  # stores the best answer after O(n) iterations
         best_match_question = None
-        with open(self.__filename, "r") as file:
-            for line in file:
-                # storing both the question and answer from database
-                stored_question, stored_answer = line.strip().split(">>", 1)
-                stored_question = stored_question.lower()
 
-                # calculate similarity
-                similarity = difflib.SequenceMatcher(None, stored_question, filtered_query).ratio()
+        for stored_question, stored_answer in rows:
+            sim = difflib.SequenceMatcher(None, stored_question, filtered_query).ratio()
+            if sim > highest_similarity:
+                highest_similarity = sim
+                best_match_question = stored_question
+                best_match_answer = stored_answer
 
-                # keep track of the best match
-                if similarity > highest_similarity:
-                    highest_similarity = similarity
-                    best_match_question = stored_question.strip()
-                    best_match_answer = stored_answer.strip()
-
-        # "Thinking Out Loud" Feature
+        # "Thinking Out Loud" Feature (CoT AI)
         self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
@@ -307,7 +328,7 @@ class DLM:
                 print("Nothing learnt. Moving on.")
                 return
 
-            self.__learn(filtered_query, self.__expectation)  # learn this new question and answer pair and add to stored_data.txt
+            self.__learn(filtered_query, self.__expectation)  # learn this new question and answer pair and add to knowledgebase
             print("I learned something new!")  # confirmation that it went through the whole process
         else:  # only executes when in commercial mode and bot cannot find the answer
             print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
