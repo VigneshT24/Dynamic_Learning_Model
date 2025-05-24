@@ -38,7 +38,7 @@ else:
     loadingAnimation("Logging in as Commercial User")
 
 print("\n")
-bot = DLM("stored_data.txt")  # stored_data.txt is the knowledge base that bot will be using
+bot = DLM()  # SQL dlm_knowledge.db is the knowledge base that bot will be using
 
 while canContinue:
     bot.ask(userChoice.lower() == "t")
