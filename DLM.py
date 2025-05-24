@@ -86,7 +86,7 @@ class DLM:
         # verbs commonly used in questions (but don’t change meaning)
         "go", "do", "dont", "does", "did", "can", "can't", "could", "couldnt", "should", "shouldnt", "shall", "will",
         "would", "wouldnt", "may", "might", "must", "use", "tell",
-        "please", "say", "let", "know", "consider", "find", "show", "take",
+        "please", "say", "let", "know", "consider", "find", "show", "take", "working",
         "list", "give", "provide", "make", "see", "mean", "understand", "point out", "stay", "look", "care", "work",
 
         # contracted forms (casual writing contractions),
@@ -170,14 +170,17 @@ class DLM:
             print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
             time.sleep(0.8)
 
-    # experimental feature: allows the bot to "think out loud" by stating [type of question] + [parsed identifier]
-    def __generate_thought(self, filtered_query, best_match_answer):
+    def __generate_thought(self, filtered_query, best_match_answer, highest_similarity):
+        """ allows the bot to "think out loud" by showing thought process step by step, like what it understood and if it knows the answer or not"""
         interrogative_start = filtered_query.split()[0]
         identifier = filtered_query.split()[1:]
         special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation"] # special word in different form
 
         print("\nThought Process:")
-        print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and is asking about \"{" ".join(identifier)}\".{'\033[0m'}")
+        if " ".join(identifier) == "":
+            print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+        else:
+            print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and is asking about \"{" ".join(identifier)}\".{'\033[0m'}")
         self.__loadingAnimation("Let me think about this carefully")
 
         for s in special_start:
@@ -185,7 +188,7 @@ class DLM:
                 if (difflib.SequenceMatcher(None, u, s).ratio() > 0.5):
                     print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
 
-        if best_match_answer is None:
+        if (best_match_answer is None) or (highest_similarity < 0.65):
             print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
         else:
             print(f"{'\033[33m'}Ah ha! I do remember learning about \"{" ".join(identifier)}\" and I might have the right answer!{'\033[0m'}")
@@ -248,7 +251,7 @@ class DLM:
                     best_match_answer = stored_answer.strip()
 
         # "Thinking Out Loud" Feature
-        self.__generate_thought(filtered_query, best_match_answer)
+        self.__generate_thought(filtered_query, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if (highest_similarity >= 0.65) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_answer)):
