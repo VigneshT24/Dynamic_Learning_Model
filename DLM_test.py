@@ -1,10 +1,15 @@
 from DLM import DLM
 import time
 
+# ANSI escape for moving the cursor up N lines
+def move_cursor_up(lines):
+    print(f"\033[{lines}A", end="")
+
 def loadingAnimation(input):
     for seconds in range(0, 3):
-        print(f"{input}{'.' * (seconds + 1)}   ", end = " ")
+        print(f"\r{input}{'.' * (seconds + 1)}   ", end="", flush=True)
         time.sleep(0.5)
+    print()
 
 canContinue = True
 devPassword = "12345"
@@ -14,7 +19,6 @@ print(f"{'\033[31m'}Welcome to Dynamic Learning Model Bot (DLM Bot). This bot ca
 print(f"{'\033[31m'}DLM Bot gets smarter for every query asked because it either knows it or learns it for next time{'\033[0m'}")
 print(f"{'\033[31m'}NOTICE: DLM Bot may sometimes misinterpret input or provide inaccurate responses. Please verify important information independently.{'\033[0m'}")
 userChoice = input("\nThere are two options: Train the DLM Bot (type 'T') or use it as is (type 'A'): ")
-
 while (userChoice.lower() != "t" and userChoice.lower() != "a"):  # if userChoice is not the expected response, keep asking until it is
     userChoice = input("\nPlease type either 'T' or 'A' to proceed: ")
 
