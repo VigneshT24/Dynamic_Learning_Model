@@ -40,7 +40,7 @@ class DLM:
         "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all", "something", "possible",
 
         # pronouns (general pronouns that don’t change meaning)
-        "i", "me", "my", "mine",
+        "i", "me", "my", "mine", "here",
         "myself", "you", "your", "yours", "yourself", "he", "him", "his", "himself",
         "she", "her", "hers", "herself", "it", "its", "itself", "we", "us", "our", "ours", "ourselves",
         "they", "them", "their", "theirs", "themselves", "who", "whom", "whose", "which", "that",
@@ -237,27 +237,12 @@ class DLM:
     def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
         """ Semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
         # break parameter inputs into list of words
-        UI_list = userInput.lower().split()
-        KB_list = knowledgebaseData.lower().split()
+        UI_doc = self.__nlp(userInput)
+        KB_doc = self.__nlp(knowledgebaseData)
 
-        # initialize match count
-        match_count = 0
+        similarity = UI_doc.similarity(KB_doc)
 
-        for user_word in UI_list:
-            user_token = self.__nlp(user_word)
-            for knowledge_word in KB_list:
-                knowledge_token = self.__nlp(knowledge_word)
-                # use Spacy's similarity function to check semantic similarity
-                if knowledge_token is not None:
-                    if user_token.similarity(knowledge_token) > 0.7:  # similarity must be over 70%
-                        match_count += 1
-                        break  # stop checking this word as it has found a match
-
-        # calculate the match ratio
-        match_ratio = match_count / len(KB_list)
-        if (match_ratio >= 0.65):
-            return True
-        return False
+        return (similarity >= 0.60)
 
     def __learn(self, query, expectation):  # no return, void
         """ Stores the new query and answer pair in SQL file """
@@ -276,7 +261,7 @@ class DLM:
         self.__query = input("DLM Bot here, ask away: ")
 
         while (self.__query is None or self.__query == ""):
-            self.query = input("Empty input is unacceptable. Please enter something: ")
+            self.__query = input("Empty input is unacceptable. Please enter something: ")
 
         self.__set_sentiment_tone(self.__query) # sets global variable sentiment tone
 
