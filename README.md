@@ -8,5 +8,5 @@ A Dynamic Learning Model (DLM) utilizes a hybrid approach to learning and respon
 NOTICE: You'll need to install, import, and configure your device to "SpaCy" and possibly SQLlite for this bot to be used in programs (only for developers)
 
 
-![DLM Bot Pipeline Graph](![image](https://github.com/user-attachments/assets/030df965-c266-4c1c-b212-38690838efff)
+![DLM Bot Pipeline Graph](![image](![image](https://github.com/user-attachments/assets/b7490274-e3e7-464a-a9e6-89bb7349f6df)
 
