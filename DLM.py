@@ -10,6 +10,7 @@ class DLM:
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
     __expectation = None  # user-inputted expected answer to query
+    __category = None # categorizes each question for self-learning in SQL DB
     __nlp = None  # Spacy NLP analysis
     __tone = None # sentimental tone of user query
 
@@ -135,23 +136,61 @@ class DLM:
     __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate"]
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
-        self.__nlp = spacy.load("en_core_web_md")
+        self.__nlp = spacy.load("en_core_web_lg")
         self.__filename = db_filename
         self.__create_table_if_missing()
 
-    def __create_table_if_missing(self): # creates a SQL Lite database if it is missing
-        """ initializes a new table if SQL table is missing (only used in constructor) """
+    def __create_table_if_missing(self):  # creates a SQL Lite database if it is missing
+        """initializes a new table if SQL table is missing (only used in constructor)"""
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
+        # Create table with identifier column if it doesn't exist
         c.execute("""
         CREATE TABLE IF NOT EXISTS knowledge_base (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question TEXT NOT NULL UNIQUE,
-            answer   TEXT NOT NULL
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            question    TEXT    NOT NULL UNIQUE,
+            answer      TEXT    NOT NULL,
+            category  TEXT    NOT NULL
         )
         """)
+        # If the table existed already without identifier, add it now
+        c.execute("PRAGMA table_info(knowledge_base)")
+        cols = [row[1] for row in c.fetchall()]
+        if 'category' not in cols:
+            c.execute("""
+            ALTER TABLE knowledge_base
+            ADD COLUMN category TEXT NOT NULL DEFAULT ''
+            """)
         conn.commit()
         conn.close()
+
+    def __get_question_type(self, exact_question):
+        conn = sqlite3.connect("dlm_knowledge.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT category FROM knowledge_base WHERE question = ?",
+            (exact_question,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]  # this is the category/question_type
+        else:
+            return None  # question not found
+
+    def __get_specific_question(self, exact_answer):
+        conn = sqlite3.connect("dlm_knowledge.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT question FROM knowledge_base WHERE answer = ?",
+            (exact_answer,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]  # this is the category/question_type
+        else:
+            return None  # question not found
 
     # ANSI escape for moving the cursor up N lines
     def __move_cursor_up(self, lines): # no return, void
@@ -226,31 +265,129 @@ class DLM:
                     if (difflib.SequenceMatcher(None, u, s).ratio() > 0.6):
                         print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
 
-            if (best_match_answer is None) or (highest_similarity < 0.65):
+            if (best_match_answer is None):
                 print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
             else:
-                DB_identifier = best_match_question.split()[1:]
-                print(f"{'\033[33m'}Ah ha! I do remember learning about \"{" ".join(DB_identifier)}\" and I might have the right answer!{'\033[0m'}")
+                DB_identifier = self.__get_specific_question(best_match_answer)
+                print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!{'\033[0m'}")
                 self.__loadingAnimation("Let me recall the answer")
         print("\n")
 
+    def __generate_response(self, best_match_answer, best_match_question): # no return, void
+        """ Generates different responses based on the category, simulating Natural Language Generation (NLG) """
+        identifier = self.__get_question_type(best_match_question)
+        BLUE = '\033[34m'
+        RESET = '\033[0m'
+
+        if identifier is None:
+            print("Sorry, I encountered an error on my end. Please try again later.")
+            return
+
+        if identifier == "generic":
+            print(f"\n{BLUE}{best_match_answer}{RESET}\n")
+
+        elif identifier == "yesno":
+            best_match_answer = best_match_answer.lower()
+            affirmative_templates = [
+                "Yes, {}",
+                "Absolutely, {}",
+                "Certainly, {}"
+            ]
+            negative_templates = [
+                "No, {}",
+                "Not at all, {}",
+                "Unfortunately, {}"
+            ]
+            ans = best_match_answer.strip().lower()
+            if ans.startswith(("no", "not", "don't", "do not", "never", "cannot")):
+                template = random.choice(negative_templates)
+                # remove instances of "negative" words to remove redundancy
+                if (best_match_answer.__contains__("no, ")):
+                    best_match_answer = best_match_answer.replace("no, ", "", 1)
+                else:
+                    best_match_answer = best_match_answer.replace("no ", "", 1)
+                best_match_answer = best_match_answer.replace("not at all", "", 1)
+                best_match_answer = best_match_answer.replace("not at all, ", "", 1)
+                best_match_answer = best_match_answer.replace("unfortunately", "", 1)
+                best_match_answer = best_match_answer.replace("unfortunately, ", "", 1)
+            else:
+                template = random.choice(affirmative_templates)
+                # remove instances of "affirmative" words to remove redundancy
+                if (best_match_answer.__contains__("yes, ")):
+                    best_match_answer = best_match_answer.replace("yes, ", "", 1)
+                else:
+                    best_match_answer = best_match_answer.replace("yes ", "", 1)
+                best_match_answer = best_match_answer.replace("absolutely", "", 1)
+                best_match_answer = best_match_answer.replace("absolutely, ", "", 1)
+                best_match_answer = best_match_answer.replace("certainly", "", 1)
+                best_match_answer = best_match_answer.replace("certainly, ", "", 1)
+            response = template.format(best_match_answer)
+            print(f"\n{BLUE}{response}{RESET}\n")
+
+        elif identifier == "process":
+            templates = [
+                "To get started, {} Then, {} Finally, {}.",
+                "First, {} Next, {} Lastly, {}.",
+                "Begin by {} After that, {} Don't forget to {}."
+            ]
+            steps = best_match_answer.split(";")  # assume steps separated by semicolons
+            response = random.choice(templates).format(*steps[:3])
+            print(f"\n{BLUE}{response}{RESET}\n")
+
+        elif identifier == "definition":
+            templates = [
+                "{0} refers to {1}.",
+                "By definition, {0} is {1}.",
+                "In simple terms, {0} means {1}."
+            ]
+            term, definition = best_match_question, best_match_answer
+            response = random.choice(templates).format(term, definition)
+            print(f"\n{BLUE}{response}{RESET}\n")
+
+        elif identifier == "deadline":
+            templates = [
+                "The deadline is {0}.",
+                "You need to submit by {0}.",
+                "Make sure to complete this by {0}."
+            ]
+            response = random.choice(templates).format(best_match_answer)
+            print(f"\n{BLUE}{response}{RESET}\n")
+
+        elif identifier == "location":
+            templates = [
+                "You can find it at {0}.",
+                "It’s located at {0}.",
+                "Head over to {0} for more information."
+            ]
+            response = random.choice(templates).format(best_match_answer)
+            print(f"\n{BLUE}{response}{RESET}\n")
+
+        elif identifier == "eligibility":
+            templates = [
+                "To be eligible, {0}.",
+                "Eligibility requires that you {0}.",
+                "You qualify if you {0}."
+            ]
+            response = random.choice(templates).format(best_match_answer)
+            print(f"\n{BLUE}{response}{RESET}\n")
+
+        else:
+            print("Cannot retrieve and generate response due to data in unfamiliar category. Please try again later.")
+
     def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
         """ Semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
-        # break parameter inputs into list of words
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
-
         similarity = UI_doc.similarity(KB_doc)
+        return (similarity >= 0.70)
 
-        return (similarity >= 0.60)
-
-    def __learn(self, query, expectation):  # no return, void
+    def __learn(self, query, expectation, category):  # no return, void
         """ Stores the new query and answer pair in SQL file """
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
         c.execute(
-            "INSERT OR IGNORE INTO knowledge_base (question, answer) VALUES (?, ?)",
-            (query, expectation)
+            "INSERT OR IGNORE INTO knowledge_base (question, answer, category) VALUES (?, ?, ?)",
+            (query, expectation, category)
         )
         conn.commit()
         conn.close()
@@ -290,8 +427,8 @@ class DLM:
         self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if (highest_similarity >= 0.65) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_answer)):
-            print(f"\n{'\033[34m'}{best_match_answer}{'\033[0m'}\n")
+        if (highest_similarity >= 0.70) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question)):
+            self.__generate_response(best_match_answer, best_match_question)
             if trainingMode:
                 self.__expectation = input("Is this what you expected (Y/N): ")
 
@@ -306,13 +443,19 @@ class DLM:
 
         # only executes if training option is TRUE
         if (trainingMode):
-            self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM
-
+            self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM with answer
             while not self.__expectation:
                 print("Nothing learnt. Moving on.")
                 return
+            self.__category = input("Which category does that question/answer belong to (yesno, process, definition, deadline, location, generic, eligibility): ").lower()
 
-            self.__learn(filtered_query, self.__expectation)  # learn this new question and answer pair and add to knowledgebase
+            # used for generated response template
+            category_options = ["yesno", "process", "definition", "deadline", "location", "generic", "eligibility"]
+
+            while not self.__category or self.__category not in category_options:
+                self.__category = input("You MUST give an appropriate category for the question/answer: ").lower()
+
+            self.__learn(filtered_query, self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
             print("I learned something new!")  # confirmation that it went through the whole process
         else:  # only executes when in commercial mode and bot cannot find the answer
             print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
