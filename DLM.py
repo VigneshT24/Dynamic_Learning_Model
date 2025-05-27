@@ -140,7 +140,7 @@ class DLM:
         self.__filename = db_filename
         self.__create_table_if_missing()
 
-    def __create_table_if_missing(self):  # creates a SQL Lite database if it is missing
+    def __create_table_if_missing(self):  # no return, void
         """initializes a new table if SQL table is missing (only used in constructor)"""
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
@@ -164,7 +164,8 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def __get_question_type(self, exact_question):
+    def __get_question_type(self, exact_question): # returns a string
+        """ returns the category of a specific question from the SQL database """
         conn = sqlite3.connect("dlm_knowledge.db")
         cursor = conn.cursor()
         cursor.execute(
@@ -178,7 +179,8 @@ class DLM:
         else:
             return None  # question not found
 
-    def __get_specific_question(self, exact_answer):
+    def __get_specific_question(self, exact_answer): # returns a string
+        """ returns the specific question from the SQL database """
         conn = sqlite3.connect("dlm_knowledge.db")
         cursor = conn.cursor()
         cursor.execute(
@@ -265,7 +267,7 @@ class DLM:
                     if (difflib.SequenceMatcher(None, u, s).ratio() > 0.6):
                         print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
 
-            if (best_match_answer is None):
+            if (best_match_answer is None) and (highest_similarity < 0.70):
                 print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
             else:
                 DB_identifier = self.__get_specific_question(best_match_answer)
