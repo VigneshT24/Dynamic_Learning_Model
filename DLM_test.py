@@ -33,6 +33,18 @@ if (userChoice.lower() == "t"):
             break
 
 if (password == devPassword):
+    print(f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO WORK ACCURATELY:{'\033[0m'}\n")
+    print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
+    print("*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
+    print("*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
+    print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
+    print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
+    print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
+    print("*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
+
+    confirmation = input("Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' to continue: ")
+    while confirmation.lower() != "y":
+        confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
     loadingAnimation("Logging in as Trainer")
 else:
     loadingAnimation("Logging in as Commercial User")
