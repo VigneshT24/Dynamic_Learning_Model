@@ -5,7 +5,6 @@ import random
 import spacy
 import time
 import sqlite3
-import re
 
 class DLM:
     __filename = None  # knowledge-base (SQL)
@@ -350,12 +349,24 @@ class DLM:
             print(f"\n{BLUE}{response}{RESET}\n")
 
         elif identifier == "deadline":
+            raw = best_match_question
+            triggers = {
+                "when", "what", "what's", "whats", "when's", "whens",
+                "is", "the", "a", "an",
+                "deadline", "due", "due date", "cutoff", "closing", "closing date",
+                "by", "before", "until",
+                "date", "day", "last", "latest", "final"
+            }
+            words = raw.split()
+            term_words = [w for w in words if w.lower() not in triggers]
+            term = " ".join(term_words).strip()
+
             templates = [
-                "The deadline is {0}",
-                "You need to submit by {0}",
-                "Make sure to complete this by {0}"
+                "The deadline for \"{0}\" is {1}",
+                "You need to submit \"{0}\" by {1}",
+                "Make sure to complete \"{0}\" by {1}"
             ]
-            response = random.choice(templates).format(best_match_answer)
+            response = random.choice(templates).format(term, best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
 
         elif identifier == "location":
@@ -370,7 +381,7 @@ class DLM:
 
         elif identifier == "eligibility":
             templates = [
-                "To be eligible, {0}",
+                "Eligibility means {0}",
                 "Eligibility requires that {0}",
                 "Qualification are met only if {0}"
             ]
