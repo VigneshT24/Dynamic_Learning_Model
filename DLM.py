@@ -9,8 +9,8 @@ import sqlite3
 class DLM:
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
-    __expectation = None  # user-inputted expected answer to query
-    __category = None # categorizes each question for self-learning in SQL DB
+    __expectation = None  # trainer-inputted expected answer to query
+    __category = None # categorizes each question for efficient retrieval and basic NLG in SQL DB
     __nlp = None  # Spacy NLP analysis
     __tone = None # sentimental tone of user query
 
@@ -132,7 +132,7 @@ class DLM:
         "show",       "list",       "give",       "how", "i"
     ]
 
-    # special words that the bot can mention while it is thinking
+    # special words that the bot can mention while in "CoT"
     __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate"]
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
@@ -164,7 +164,7 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def __get_question_type(self, exact_question): # returns a string
+    def __get_category(self, exact_question): # returns category as a string
         """ returns the category of a specific question from the SQL database """
         conn = sqlite3.connect("dlm_knowledge.db")
         cursor = conn.cursor()
@@ -179,7 +179,7 @@ class DLM:
         else:
             return None  # question not found
 
-    def __get_specific_question(self, exact_answer): # returns a string
+    def __get_specific_question(self, exact_answer): # returns question as a string
         """ returns the specific question from the SQL database """
         conn = sqlite3.connect("dlm_knowledge.db")
         cursor = conn.cursor()
@@ -243,7 +243,7 @@ class DLM:
         else:
             self.__tone = ""
 
-    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
+    def __generate_thought(self, filtered_query, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
         if (filtered_query is None or filtered_query == ""):
             return
@@ -277,7 +277,7 @@ class DLM:
 
     def __generate_response(self, best_match_answer, best_match_question): # no return, void
         """ Generates different responses based on the category, simulating Natural Language Generation (NLG) """
-        identifier = self.__get_question_type(best_match_question)
+        identifier = self.__get_category(best_match_question)
         BLUE = '\033[34m'
         RESET = '\033[0m'
 
@@ -422,7 +422,7 @@ class DLM:
 
         self.__set_sentiment_tone(self.__query) # sets global variable sentiment tone
 
-        # storing the user-query (filtered and lower-case)
+        # storing the user-query (filtered, lower-case, no punctuation)
         filtered_query = self.__filtered_input(
             self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
 
@@ -433,7 +433,7 @@ class DLM:
         conn.close()
 
         highest_similarity = 0
-        best_match_answer = None  # stores the best answer after O(n) iterations
+        best_match_answer = None  # stores the best answer after O(log(n)) iterations
         best_match_question = None
 
         for stored_question, stored_answer in rows:
@@ -443,8 +443,8 @@ class DLM:
                 best_match_question = stored_question
                 best_match_answer = stored_answer
 
-        # "Thinking Out Loud" Feature (CoT AI)
-        self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
+        # Basic "Chain of Thought" (CoT) Feature
+        self.__generate_thought(filtered_query, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if (highest_similarity >= 0.70) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question)):
