@@ -5,6 +5,7 @@ import random
 import spacy
 import time
 import sqlite3
+import re
 
 class DLM:
     __filename = None  # knowledge-base (SQL)
@@ -287,87 +288,93 @@ class DLM:
             print(f"\n{BLUE}{best_match_answer}{RESET}\n")
 
         elif identifier == "yesno":
-            best_match_answer = best_match_answer.lower()
             affirmative_templates = [
                 "Yes, {}",
                 "Absolutely, {}",
-                "Certainly, {}"
+                "Certainly, {}",
+                "Indeed, {}"
             ]
             negative_templates = [
                 "No, {}",
                 "Not at all, {}",
-                "Unfortunately, {}"
+                "Unfortunately, {}",
+                "Of course not, {}"
             ]
             ans = best_match_answer.strip().lower()
             if ans.startswith(("no", "not", "don't", "do not", "never", "cannot")):
                 template = random.choice(negative_templates)
                 # remove instances of "negative" words to remove redundancy
-                if (best_match_answer.__contains__("no, ")):
+                if (ans.__contains__("no, ")):
                     best_match_answer = best_match_answer.replace("no, ", "", 1)
                 else:
                     best_match_answer = best_match_answer.replace("no ", "", 1)
-                best_match_answer = best_match_answer.replace("not at all", "", 1)
-                best_match_answer = best_match_answer.replace("not at all, ", "", 1)
-                best_match_answer = best_match_answer.replace("unfortunately", "", 1)
-                best_match_answer = best_match_answer.replace("unfortunately, ", "", 1)
             else:
                 template = random.choice(affirmative_templates)
                 # remove instances of "affirmative" words to remove redundancy
-                if (best_match_answer.__contains__("yes, ")):
+                if (ans.__contains__("yes, ")):
                     best_match_answer = best_match_answer.replace("yes, ", "", 1)
                 else:
                     best_match_answer = best_match_answer.replace("yes ", "", 1)
-                best_match_answer = best_match_answer.replace("absolutely", "", 1)
-                best_match_answer = best_match_answer.replace("absolutely, ", "", 1)
-                best_match_answer = best_match_answer.replace("certainly", "", 1)
-                best_match_answer = best_match_answer.replace("certainly, ", "", 1)
             response = template.format(best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
 
-        elif identifier == "process":
+        elif identifier == "process": # when training, make sure there are only 3 steps for "process"
             templates = [
-                "To get started, {} Then, {} Finally, {}.",
-                "First, {} Next, {} Lastly, {}.",
-                "Begin by {} After that, {} Don't forget to {}."
+                "To get started, {}. Then, {}. Finally, {}",
+                "First, {}. Next, {}. Lastly, {}",
+                "Begin by {}. After that, {}. Don't forget to {}."
             ]
-            steps = best_match_answer.split(";")  # assume steps separated by semicolons
+            steps = best_match_answer.split("; ")  # steps must be separated by a semicolon
             response = random.choice(templates).format(*steps[:3])
             print(f"\n{BLUE}{response}{RESET}\n")
 
         elif identifier == "definition":
+            # extract just the term by filtering out common definition triggers
+            raw = best_match_question  # e.g. "what definition fafsa"
+            triggers = {
+                "what", "definition", "define", "meaning", "interpret",
+                "what's", "whats", "what is", "what does", "mean", "means",
+                "could", "you", "explain", "describe", "clarify", "tell",
+                "me", "give", "the", "of", "in", "other", "words"
+            }
+            # split on whitespace, drop any trigger words (case‐insensitive)
+            term_words = [w for w in raw.split() if w.lower() not in triggers]
+            term = " ".join(term_words).strip()
+
             templates = [
-                "{0} refers to {1}.",
-                "By definition, {0} is {1}.",
-                "In simple terms, {0} means {1}."
+                "{0} refers to {1}",
+                "By definition, {0} is {1}",
+                "In simple terms, {0} means {1}"
             ]
-            term, definition = best_match_question, best_match_answer
-            response = random.choice(templates).format(term, definition)
+            response = random.choice(templates).format(term, best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
 
         elif identifier == "deadline":
             templates = [
-                "The deadline is {0}.",
-                "You need to submit by {0}.",
-                "Make sure to complete this by {0}."
+                "The deadline is {0}",
+                "You need to submit by {0}",
+                "Make sure to complete this by {0}"
             ]
             response = random.choice(templates).format(best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
 
         elif identifier == "location":
             templates = [
-                "You can find it at {0}.",
-                "It’s located at {0}.",
-                "Head over to {0} for more information."
+                "You can find it at {0}",
+                "It’s located at {0}",
+                "Head over to {0} for more information"
             ]
+            best_match_answer = best_match_answer.lower()
             response = random.choice(templates).format(best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
 
         elif identifier == "eligibility":
             templates = [
-                "To be eligible, {0}.",
-                "Eligibility requires that you {0}.",
-                "You qualify if you {0}."
+                "To be eligible, {0}",
+                "Eligibility requires that {0}",
+                "Qualification are met only if {0}"
             ]
+            best_match_answer = best_match_answer.lower()
             response = random.choice(templates).format(best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
 
@@ -379,7 +386,7 @@ class DLM:
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
         similarity = UI_doc.similarity(KB_doc)
-        return (similarity >= 0.70)
+        return (similarity >= 0.50)
 
     def __learn(self, query, expectation, category):  # no return, void
         """ Stores the new query and answer pair in SQL file """
