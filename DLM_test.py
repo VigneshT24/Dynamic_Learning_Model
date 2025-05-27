@@ -5,6 +5,7 @@ import time
 def move_cursor_up(lines):
     print(f"\033[{lines}A", end="")
 
+# loading animation utilizes "move_cursor_up"
 def loadingAnimation(input):
     for seconds in range(0, 3):
         print(f"\r{input}{'.' * (seconds + 1)}   ", end="", flush=True)
@@ -12,7 +13,7 @@ def loadingAnimation(input):
     print()
 
 canContinue = True
-devPassword = "12345"
+devPassword = "371507"
 
 # introduction and disclaimers
 print(f"{'\033[31m'}Welcome to Dynamic Learning Model Bot (DLM Bot). This bot can be trained for any purposes.{'\033[0m'}")
@@ -33,7 +34,8 @@ if (userChoice.lower() == "t"):
             break
 
 if (password == devPassword):
-    print(f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO WORK ACCURATELY:{'\033[0m'}\n")
+    # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
+    print(f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
     print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
     print("*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
     print("*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
@@ -43,7 +45,7 @@ if (password == devPassword):
     print("*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
 
     confirmation = input("Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' to continue: ")
-    while confirmation.lower() != "y":
+    while confirmation.lower() != "y": # trainers must understand the instructions above
         confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
     loadingAnimation("Logging in as Trainer")
 else:
