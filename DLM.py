@@ -13,9 +13,9 @@ class DLM:
     __category = None # categorizes each question for efficient retrieval and basic NLG in SQL DB
     __nlp = None  # Spacy NLP analysis
     __tone = None # sentimental tone of user query
-    __trainingPwd = "371507"
-    __mode = None
-    __iterations = 0
+    __trainingPwd = "371507" # password to enter training mode
+    __mode = None # either "training" or "user"
+    __iterations = 0 # used to prevent multiple iterations of training prompt
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -362,7 +362,7 @@ class DLM:
                 "is", "the", "a", "an",
                 "deadline", "due", "due date", "cutoff", "closing", "closing date",
                 "by", "before", "until",
-                "date", "day", "last", "latest", "final"
+                "date", "day", "last", "latest", "final", "damn"
             }
             words = raw.split()
             term_words = [w for w in words if w.lower() not in triggers]
