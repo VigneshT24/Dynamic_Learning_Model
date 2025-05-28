@@ -266,7 +266,7 @@ class DLM:
                 for u in filtered_query.split():
                     s_input = self.__nlp(s)
                     u_input = self.__nlp(u)
-                    if (s_input is not None and u_input is not None) and (s_input.similarity(u_input) > 0.6):
+                    if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.6):
                         print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
 
             if (best_match_answer is None) and (highest_similarity < 0.70):
