@@ -414,9 +414,9 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def ask(self, trainingMode):  # no return, void
+    def ask(self, trainingPassword):  # no return, void
         """ Main method in which the user is able to ask any query and DLM will either answer it or learn it """
-        print("\nTRAINING MODE") if (trainingMode == True) else print("\nCOMMERCIAL MODE")
+        print("\nTRAINING MODE") if (trainingPassword == "371507") else print("\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
 
         while (self.__query is None or self.__query == ""):
