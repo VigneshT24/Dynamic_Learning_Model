@@ -13,7 +13,7 @@ def loadingAnimation(input):
     print()
 
 canContinue = True
-devPassword = "371507"
+trainingPwd = "371507"
 
 # introduction and disclaimers
 print(f"{'\033[31m'}Welcome to Dynamic Learning Model Bot (DLM Bot). This bot can be trained for any purposes.{'\033[0m'}")
@@ -27,13 +27,13 @@ password = None
 
 if (userChoice.lower() == "t"):
     password = input("Enter the password to enter Training Mode: ")
-    while (password != devPassword):
+    while (password != trainingPwd):
         password = input("Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
         if (password.lower() == "stop"):
             userChoice = "A"
             break
 
-if (password == devPassword):
+if (password == trainingPwd):
     # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
     print(f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
     print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
@@ -55,7 +55,7 @@ print("\n")
 bot = DLM()  # SQL dlm_knowledge.db is the knowledge base that bot will be using
 
 while canContinue:
-    bot.ask(userChoice.lower() == "t")
+    bot.ask(password)
     choice = input("Continue (Y/N): ")
     while (choice.lower() != "y" and choice.lower() != "n"):  # if choice is not the expected response, keep asking until it is
         choice = input("\nPlease type either 'Y' or 'N' to proceed: ")
