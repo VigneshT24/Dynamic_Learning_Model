@@ -264,7 +264,9 @@ class DLM:
 
             for s in special_start:
                 for u in filtered_query.split():
-                    if (difflib.SequenceMatcher(None, u, s).ratio() > 0.6):
+                    s_input = self.__nlp(s)
+                    u_input = self.__nlp(u)
+                    if (s_input is not None and u_input is not None) and (s_input.similarity(u_input) > 0.6):
                         print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
 
             if (best_match_answer is None) and (highest_similarity < 0.70):
@@ -447,7 +449,7 @@ class DLM:
         self.__generate_thought(filtered_query, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if (highest_similarity >= 0.70) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question)):
+        if (highest_similarity >= 0.60) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question)):
             self.__generate_response(best_match_answer, best_match_question)
             if trainingMode:
                 self.__expectation = input("Is this what you expected (Y/N): ")
