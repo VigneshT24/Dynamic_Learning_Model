@@ -15,6 +15,7 @@ class DLM:
     __tone = None # sentimental tone of user query
     __trainingPwd = "371507"
     __mode = None
+    __iterations = 0
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -452,8 +453,9 @@ class DLM:
     def ask(self, mode):  # no return, void
         """ Main method in which the user is able to ask any query and DLM will either answer it or learn it.
             'mode' should either be [t] for training mode or [a] for commercial mode, no other value will be accepted"""
-        self.__login_verification(mode)
-
+        if (self.__iterations == 0):
+            self.__login_verification(mode)
+            self.__iterations+=1
         print("\nTRAINING MODE") if (self.__mode == "training") else print("\n\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
 
