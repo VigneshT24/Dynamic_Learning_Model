@@ -13,6 +13,8 @@ class DLM:
     __category = None # categorizes each question for efficient retrieval and basic NLG in SQL DB
     __nlp = None  # Spacy NLP analysis
     __tone = None # sentimental tone of user query
+    __trainingPwd = "371507"
+    __mode = None
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -414,9 +416,45 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def ask(self, trainingPassword):  # no return, void
-        """ Main method in which the user is able to ask any query and DLM will either answer it or learn it """
-        print("\nTRAINING MODE") if (trainingPassword == "371507") else print("\nCOMMERCIAL MODE")
+    def __login_verification(self, mode):
+        if (mode.lower() == "t"):
+            password = input("Enter the password to enter Training Mode: ")
+            while (password != self.__trainingPwd):
+                password = input("Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
+                if (password.lower() == "stop"):
+                        self.__mode = "user"
+                        print("\n")
+                        self.__loadingAnimation("Logging in as Commercial User")
+                        print("\n")
+                        break
+            if (password == self.__trainingPwd):
+                # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
+                print(f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
+                print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
+                print("*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
+                print("*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
+                print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
+                print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
+                print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
+                print("*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
+
+                confirmation = input("Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' to continue: ")
+                while confirmation.lower() != "y":  # trainers must understand the instructions above
+                    confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
+                self.__mode = "training"
+                print("\n")
+                self.__loadingAnimation("Logging in as Trainer")
+                print("\n")
+        else:
+            self.__mode = "user"
+            self.__loadingAnimation("Logging in as Commercial User")
+
+    def ask(self, mode):  # no return, void
+        """ Main method in which the user is able to ask any query and DLM will either answer it or learn it.
+            'mode' should either be [t] for training mode or [a] for commercial mode, no other value will be accepted"""
+        self.__login_verification(mode)
+
+        print("\nTRAINING MODE") if (self.__mode == "training") else print("\n\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
 
         while (self.__query is None or self.__query == ""):
@@ -451,7 +489,7 @@ class DLM:
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if (highest_similarity >= 0.60) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question)):
             self.__generate_response(best_match_answer, best_match_question)
-            if trainingMode:
+            if self.__mode == "training":
                 self.__expectation = input("Is this what you expected (Y/N): ")
 
                 while not self.__expectation:  # if nothing entered, ask until question answered
@@ -464,7 +502,7 @@ class DLM:
                 return
 
         # only executes if training option is TRUE
-        if (trainingMode):
+        if (self.__mode == "training"):
             self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM with answer
             while not self.__expectation:
                 print("Nothing learnt. Moving on.")
