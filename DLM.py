@@ -416,7 +416,7 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def __login_verification(self, mode):
+    def __login_verification(self, mode): # no return, void
         if (mode.lower() == "t"):
             password = input("Enter the password to enter Training Mode: ")
             while (password != self.__trainingPwd):
