@@ -277,6 +277,7 @@ class DLM:
                 print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
                 self.__unsure_while_thinking = True
             else:
+                self.__unsure_while_thinking = False
                 DB_identifier = self.__get_specific_question(best_match_answer)
                 print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!{'\033[0m'}")
                 self.__loadingAnimation("Let me recall the answer")
