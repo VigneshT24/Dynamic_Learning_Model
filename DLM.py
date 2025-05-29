@@ -15,7 +15,8 @@ class DLM:
     __tone = None # sentimental tone of user query
     __trainingPwd = "371507" # password to enter training mode
     __mode = None # either "training" or "user"
-    __iterations = 0 # used to prevent multiple iterations of training prompt
+    __singlePassthrough = True # used to prevent multiple iterations of training prompt
+    __unsure_while_thinking = False # if uncertain while thinking, then it will let the user know that
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -262,7 +263,7 @@ class DLM:
             if (" ".join(identifier) == ""):
                 print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
             else:
-                print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and is asking about \"{" ".join(identifier)}\".{'\033[0m'}")
+                print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and they are asking about \"{" ".join(identifier)}\".{'\033[0m'}")
             self.__loadingAnimation("Let me think about this carefully")
 
             for s in special_start:
@@ -272,8 +273,9 @@ class DLM:
                     if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.6):
                         print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
 
-            if (best_match_answer is None) and (highest_similarity < 0.70):
-                print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I may disappoint the user.{'\033[0m'}")
+            if (best_match_answer is None) or (highest_similarity < 0.60):
+                print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
+                self.__unsure_while_thinking = True
             else:
                 DB_identifier = self.__get_specific_question(best_match_answer)
                 print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!{'\033[0m'}")
@@ -407,7 +409,7 @@ class DLM:
         return (similarity >= 0.50)
 
     def __learn(self, query, expectation, category):  # no return, void
-        """ Stores the new query and answer pair in SQL file """
+        """ Stores the new query, answer, and category pair in SQL file """
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
         c.execute(
@@ -418,6 +420,7 @@ class DLM:
         conn.close()
 
     def __login_verification(self, mode): # no return, void
+        """ verifies whether this model is currently being used for training or commercial, and request password if training is chosen """
         if (mode.lower() == "t"):
             password = input("Enter the password to enter Training Mode: ")
             while (password != self.__trainingPwd):
@@ -451,11 +454,11 @@ class DLM:
             self.__loadingAnimation("Logging in as Commercial User")
 
     def ask(self, mode):  # no return, void
-        """ Main method in which the user is able to ask any query and DLM will either answer it or learn it.
-            'mode' should either be [t] for training mode or [a] for commercial mode, no other value will be accepted"""
-        if (self.__iterations == 0):
+        """ main method in which the user is able to ask any query and DLM will either answer it or learn it.
+            'mode' should either be [t] for training mode or [a] for commercial mode, no other value will be accepted """
+        if (self.__singlePassthrough):
             self.__login_verification(mode)
-            self.__iterations+=1
+            self.__singlePassthrough = False
         print("\nTRAINING MODE") if (self.__mode == "training") else print("\n\nCOMMERCIAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
 
@@ -489,7 +492,8 @@ class DLM:
         self.__generate_thought(filtered_query, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if (highest_similarity >= 0.60) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question)):
+        if (not self.__unsure_while_thinking) and ((highest_similarity >= 0.60) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question))):
+            self.__unsure_while_thinking = False # reset this back to default for next iteration
             self.__generate_response(best_match_answer, best_match_question)
             if self.__mode == "training":
                 self.__expectation = input("Is this what you expected (Y/N): ")
