@@ -1,6 +1,6 @@
 from DLM import DLM
 import time
-import threading, itertools, sys      # std-lib helpers for the spinner
+import threading, itertools, sys # std-lib helpers for the spinner
 
 # ANSI escape for moving the cursor up N lines
 def move_cursor_up(lines):
@@ -26,7 +26,7 @@ userChoice = input("\nThere are two options: Train the DLM Bot (type 'T') or use
 while userChoice.lower() not in ("t", "a"):
     userChoice = input("\nPlease type either 'T' or 'A' to proceed: ")
 
-# Start the spinner before creating the DLM object
+# start the spinner before creating the DLM object
 stop_spinner = threading.Event()
 spinner = threading.Thread(
     target=loadingAnimation,
@@ -36,8 +36,8 @@ spinner.start()
 
 bot = DLM()
 
-stop_spinner.set()     # signal the spinner to finish
-spinner.join()         # wait until it cleans the line
+stop_spinner.set() # signal the spinner to finish
+spinner.join() # wait until it cleans the line
 print("SQL Server ready!\n")
 
 while canContinue:
