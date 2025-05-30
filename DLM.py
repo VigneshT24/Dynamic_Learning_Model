@@ -17,6 +17,8 @@ class DLM:
     __mode = None # either "training" or "user"
     __singlePassthrough = True # used to prevent multiple iterations of training prompt
     __unsure_while_thinking = False # if uncertain while thinking, then it will let the user know that
+    __nlp_similarity_value = None # saves the similarity value by doing SpaCy calculation (for debugging)
+    __special_stripped_query = None # saves query without any special words for reduced interference while vector calculating
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -137,7 +139,7 @@ class DLM:
     ]
 
     # special words that the bot can mention while in "CoT"
-    __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate"]
+    __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate", "mean"]
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
         self.__nlp = spacy.load("en_core_web_lg")
@@ -247,14 +249,20 @@ class DLM:
         else:
             self.__tone = ""
 
-    def __generate_thought(self, filtered_query, best_match_answer, highest_similarity): # no return, void
+    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
         if (filtered_query is None or filtered_query == ""):
-            return
+            print("I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!")
         else:
             interrogative_start = filtered_query.split()[0]
-            identifier = filtered_query.split()[1:]
-            special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation"] # special word in different form
+            identifier = filtered_query
+            special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation", "meaning"] # special word in different form
+            for word in special_start:
+                identifier = identifier.replace(word, "")
+            # collapse any extra spaces
+            identifier = " ".join(identifier.split())
+            identifier = identifier.split()
+
             sentiment_tone = self.__tone.split()
 
             print("\nThought Process:")
@@ -270,17 +278,20 @@ class DLM:
                 for u in filtered_query.split():
                     s_input = self.__nlp(s)
                     u_input = self.__nlp(u)
-                    if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.6):
+                    if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.60):
                         print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
 
-            if (best_match_answer is None) or (highest_similarity < 0.60):
+            if (best_match_answer is None) or (highest_similarity < 0.65):
                 print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
                 self.__unsure_while_thinking = True
             else:
                 self.__unsure_while_thinking = False
                 DB_identifier = self.__get_specific_question(best_match_answer)
-                print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!{'\033[0m'}")
-                self.__loadingAnimation("Let me recall the answer")
+                self.__semantic_similarity(self.__special_stripped_query, best_match_question)
+                print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
+                print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
+                print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
+                self.__loadingAnimation("Let me recall that answer")
         print("\n")
 
     def __generate_response(self, best_match_answer, best_match_question): # no return, void
@@ -406,8 +417,8 @@ class DLM:
         """ Semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
-        similarity = UI_doc.similarity(KB_doc)
-        return (similarity >= 0.50)
+        self.__nlp_similarity_value = UI_doc.similarity(KB_doc)
+        return (self.__nlp_similarity_value > 0.50)
 
     def __learn(self, query, expectation, category):  # no return, void
         """ Stores the new query, answer, and category pair in SQL file """
@@ -415,7 +426,7 @@ class DLM:
         c = conn.cursor()
         c.execute(
             "INSERT OR IGNORE INTO knowledge_base (question, answer, category) VALUES (?, ?, ?)",
-            (query, expectation, category)
+            (self.__special_stripped_query, expectation, category)
         )
         conn.commit()
         conn.close()
@@ -472,28 +483,41 @@ class DLM:
         filtered_query = self.__filtered_input(
             self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
 
+        # match_query is the query without special words to prevent interference with SpaCy similarity
+        self.__special_stripped_query = filtered_query
+        special_exceptions = ["definition", "explanation", "description", "comparison", "calculation", "translation", "meaning"]
+        for word in special_exceptions:
+            self.__special_stripped_query = self.__special_stripped_query.replace(word, "")
+        # collapse any extra spaces
+        self.__special_stripped_query = " ".join(self.__special_stripped_query.split())
+
         conn = sqlite3.connect(self.__filename)
         cursor = conn.cursor()
         cursor.execute("SELECT question, answer FROM knowledge_base")
         rows = cursor.fetchall()
         conn.close()
 
-        highest_similarity = 0
-        best_match_answer = None  # stores the best answer after O(log(n)) iterations
+        highest_similarity = 0.0
         best_match_question = None
+        best_match_answer = None
 
         for stored_question, stored_answer in rows:
-            sim = difflib.SequenceMatcher(None, stored_question, filtered_query).ratio()
+            # compare against both versions of the user query
+            sim_stripped = difflib.SequenceMatcher(None, stored_question, self.__special_stripped_query).ratio()
+            sim_filtered = difflib.SequenceMatcher(None, stored_question, filtered_query).ratio()
+            # pick the higher
+            sim = max(sim_stripped, sim_filtered)
+
             if sim > highest_similarity:
                 highest_similarity = sim
                 best_match_question = stored_question
                 best_match_answer = stored_answer
 
         # Basic "Chain of Thought" (CoT) Feature
-        self.__generate_thought(filtered_query, best_match_answer, highest_similarity)
+        self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if (not self.__unsure_while_thinking) and ((highest_similarity >= 0.60) or (best_match_answer and self.__semantic_similarity(filtered_query, best_match_question))):
+        if (not self.__unsure_while_thinking) and ((highest_similarity > 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question))):
             self.__unsure_while_thinking = False # reset this back to default for next iteration
             self.__generate_response(best_match_answer, best_match_question)
             if self.__mode == "training":
