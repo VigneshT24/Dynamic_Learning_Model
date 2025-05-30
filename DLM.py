@@ -290,7 +290,8 @@ class DLM:
                 self.__semantic_similarity(self.__special_stripped_query, best_match_question)
                 print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
                 print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
-                print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
+                if (self.__nlp_similarity_value is not None):
+                    print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
                 self.__loadingAnimation("Let me recall that answer")
         print("\n")
 
@@ -362,9 +363,9 @@ class DLM:
             term = " ".join(term_words).strip()
 
             templates = [
-                "{0} refers to {1}",
-                "By definition, {0} is {1}",
-                "In simple terms, {0} means {1}"
+                "\"{0}\" refers to {1}",
+                "By definition, \"{0}\" is {1}",
+                "In simple terms, \"{0}\" means {1}"
             ]
             response = random.choice(templates).format(term, best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
@@ -417,8 +418,11 @@ class DLM:
         """ Semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
-        self.__nlp_similarity_value = UI_doc.similarity(KB_doc)
-        return (self.__nlp_similarity_value > 0.50)
+        if (UI_doc.vector_norm != 0 and KB_doc.vector_norm != 0):
+            self.__nlp_similarity_value = UI_doc.similarity(KB_doc)
+            return (self.__nlp_similarity_value > 0.50)
+        else:
+            return False
 
     def __learn(self, query, expectation, category):  # no return, void
         """ Stores the new query, answer, and category pair in SQL file """
