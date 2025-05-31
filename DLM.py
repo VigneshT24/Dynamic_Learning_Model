@@ -5,6 +5,9 @@ import random
 import spacy
 import time
 import sqlite3
+import re
+import nltk
+from nltk.corpus import names
 
 class DLM:
     __filename = None  # knowledge-base (SQL)
@@ -19,6 +22,7 @@ class DLM:
     __unsure_while_thinking = False # if uncertain while thinking, then it will let the user know that
     __nlp_similarity_value = None # saves the similarity value by doing SpaCy calculation (for debugging)
     __special_stripped_query = None # saves query without any special words for reduced interference while vector calculating
+    __nltk_names = set(name.lower() for name in names.words())
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -143,10 +147,10 @@ class DLM:
 
     # advanced CoT computation identifiers
     __computation_identifiers = {
-        "add":      ["add", "plus", "sum", "total", "combined", "together", "in all", "in total", "more", "increased by", "gain", "got", "collected", "received"],
-        "subtract": ["subtract", "minus", "less", "difference", "left", "remain", "remaining", "take away", "remove", "lost", "gave", "spent", "give away"],
-        "multiply": ["multiply", "times", "multiplied by", "product", "each", "every"],
-        "divide":   ["divide", "divided by", "split", "shared equally", "per", "share", "shared", "equal parts", "equal groups"]
+        "+": ["add", "plus", "sum", "total", "combined", "together", "in all", "in total", "more", "increased by", "gain", "got", "collected", "received"],
+        "-": ["subtract", "minus", "less", "difference", "left", "remain", "remaining", "take away", "remove", "lost", "gave", "spent", "give away"],
+        "*": ["multiply", "times", "multiplied by", "product", "each", "every"],
+        "/": ["divide", "divided by", "split", "shared equally", "per", "share", "shared", "equal parts", "equal groups"]
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
@@ -257,55 +261,92 @@ class DLM:
         else:
             self.__tone = ""
 
-    def perform_advnaced_CoT(self, filtered_query): # FIX ME
+    def __perform_advnaced_CoT(self, filtered_query): # no return, void
         """ takes in arithmetic problems that need computation and solves it step by step with reasoning, no memorization """
+        print(f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
+        self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it")
+        print(f"\n{'\033[33m'}I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now.{'\033[0m'}")
+        persons_mentioned = []
+        num_mentioned = []
+        operands_mentioned = []
+        filtered_query = filtered_query.title()
+        doc = self.__nlp(filtered_query)
 
-        pass
+        # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
+        for ent in doc.ents:
+            if ent.label_ == "PERSON":
+                cleaned = re.sub(r'\d+', "", ent.text).strip()
+                if cleaned:
+                    persons_mentioned.append(cleaned)
+
+        tokens = nltk.word_tokenize(filtered_query)
+        for tok in tokens:
+            cleaned = re.sub(r"[^a-zA-Z]", "", tok).lower()
+            if cleaned in self.__nltk_names:
+                persons_mentioned.append(cleaned.capitalize())
+
+        persons_mentioned = set(persons_mentioned)
+
+        # Now have the bot pick out numbers (in order)
+        re_pattern = re.compile(r"\d+(\.\d+)?")
+        for match in re_pattern.finditer(filtered_query):
+            num_mentioned.append(float(match.group(0)).__str__())
+
+        # Then have it find all operand indicating keywords
+
+        # The bot needs to explain what it has tokenized
+        print(f"{'\033[33m'}I see the names {', '.join(persons_mentioned)} mentioned; they’re likely key to this problem.{'\033[0m'}")
+        print(f"{'\033[33m'}I’ve also identified the numbers: {' and '.join(num_mentioned)}.{'\033[0m'}")
+
+        # Finally compute it and then give the response (if there is any)
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
+        print("\nThought Process:")
         if (filtered_query is None or filtered_query == ""):
-            print("I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!")
+            print(f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
         else:
-            interrogative_start = filtered_query.split()[0]
-            identifier = filtered_query
-            special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation", "meaning"] # special word in different form
-            for word in special_start:
-                identifier = identifier.replace(word, "")
-            # collapse any extra spaces
-            identifier = " ".join(identifier.split())
-            identifier = identifier.split()
-
-            sentiment_tone = self.__tone.split()
-
-            print("\nThought Process:")
-            if (self.__tone != ""):
-                print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
-            if (" ".join(identifier) == ""):
-                print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+            if (self.__mode == "experimental"):
+                self.__perform_advnaced_CoT(filtered_query)
             else:
-                print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and they are asking about \"{" ".join(identifier)}\".{'\033[0m'}")
-            self.__loadingAnimation("Let me think about this carefully")
+                interrogative_start = filtered_query.split()[0]
+                identifier = filtered_query
+                special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation", "meaning"] # special word in different form
+                for word in special_start:
+                    identifier = identifier.replace(word, "")
+                # collapse any extra spaces
+                identifier = " ".join(identifier.split())
+                identifier = identifier.split()
 
-            for s in special_start:
-                for u in filtered_query.split():
-                    s_input = self.__nlp(s)
-                    u_input = self.__nlp(u)
-                    if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.60):
-                        print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
+                sentiment_tone = self.__tone.split()
 
-            if (best_match_answer is None) or (highest_similarity < 0.65):
-                print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
-                self.__unsure_while_thinking = True
-            else:
-                self.__unsure_while_thinking = False
-                DB_identifier = self.__get_specific_question(best_match_answer)
-                self.__semantic_similarity(self.__special_stripped_query, best_match_question)
-                print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
-                print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
-                if (self.__nlp_similarity_value is not None):
-                    print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
-                self.__loadingAnimation("Let me recall that answer")
+                if (self.__tone != ""):
+                    print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
+                if (" ".join(identifier) == ""):
+                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+                else:
+                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and they are asking about \"{" ".join(identifier)}\".{'\033[0m'}")
+                self.__loadingAnimation("Let me think about this carefully")
+
+                for s in special_start:
+                    for u in filtered_query.split():
+                        s_input = self.__nlp(s)
+                        u_input = self.__nlp(u)
+                        if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.60):
+                            print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
+
+                if (best_match_answer is None) or (highest_similarity < 0.65):
+                    print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
+                    self.__unsure_while_thinking = True
+                else:
+                    self.__unsure_while_thinking = False
+                    DB_identifier = self.__get_specific_question(best_match_answer)
+                    self.__semantic_similarity(self.__special_stripped_query, best_match_question)
+                    print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
+                    print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
+                    if (self.__nlp_similarity_value is not None):
+                        print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
+                    self.__loadingAnimation("Let me recall that answer")
         print("\n")
 
     def __generate_response(self, best_match_answer, best_match_question): # no return, void
@@ -497,7 +538,7 @@ class DLM:
         elif (self.__mode == "commercial"):
             print("\n\nCOMMERCIAL MODE")
         else:
-            print("\n\nEXPERIMENTAL MODE")
+            print("\n\nEXPERIMENTAL MODE") # for experimental, there are no data saving in DB
         self.__query = input("DLM Bot here, ask away: ")
 
         while (self.__query is None or self.__query == ""):
@@ -543,36 +584,37 @@ class DLM:
         self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if (not self.__unsure_while_thinking) and ((highest_similarity > 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question))):
-            self.__unsure_while_thinking = False # reset this back to default for next iteration
-            self.__generate_response(best_match_answer, best_match_question)
-            if self.__mode == "training":
-                self.__expectation = input("Is this what you expected (Y/N): ")
+        if (self.__mode != "experimental"):
+            if (not self.__unsure_while_thinking) and ((highest_similarity > 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question))):
+                self.__unsure_while_thinking = False # reset this back to default for next iteration
+                self.__generate_response(best_match_answer, best_match_question)
+                if self.__mode == "training":
+                    self.__expectation = input("Is this what you expected (Y/N): ")
 
-                while not self.__expectation:  # if nothing entered, ask until question answered
-                    self.__expectation = input("Empty input is unacceptable. Is this what you expected (Y/N): ")
+                    while not self.__expectation:  # if nothing entered, ask until question answered
+                        self.__expectation = input("Empty input is unacceptable. Is this what you expected (Y/N): ")
 
-                if self.__expectation.lower() == "y":
-                    print("Great!")
+                    if self.__expectation.lower() == "y":
+                        print("Great!")
+                        return
+                else:
                     return
-            else:
-                return
 
-        # only executes if training option is TRUE
-        if (self.__mode == "training"):
-            self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM with answer
-            while not self.__expectation:
-                print("Nothing learnt. Moving on.")
-                return
-            self.__category = input("Which category does that question/answer belong to (yesno, process, definition, deadline, location, generic, eligibility): ").lower()
+            # only executes if training option is TRUE
+            if (self.__mode == "training"):
+                self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM with answer
+                while not self.__expectation:
+                    print("Nothing learnt. Moving on.")
+                    return
+                self.__category = input("Which category does that question/answer belong to (yesno, process, definition, deadline, location, generic, eligibility): ").lower()
 
-            # used for generated response template
-            category_options = ["yesno", "process", "definition", "deadline", "location", "generic", "eligibility"]
+                # used for generated response template
+                category_options = ["yesno", "process", "definition", "deadline", "location", "generic", "eligibility"]
 
-            while not self.__category or self.__category not in category_options:
-                self.__category = input("You MUST give an appropriate category for the question/answer: ").lower()
+                while not self.__category or self.__category not in category_options:
+                    self.__category = input("You MUST give an appropriate category for the question/answer: ").lower()
 
-            self.__learn(self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
-            print("I learned something new!")  # confirmation that it went through the whole process
-        else:  # only executes when in commercial mode and bot cannot find the answer
-            print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+                self.__learn(self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
+                print("I learned something new!")  # confirmation that it went through the whole process
+            else:  # only executes when in commercial mode and bot cannot find the answer
+                print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
