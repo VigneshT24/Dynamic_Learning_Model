@@ -22,9 +22,9 @@ print(f"\033[31mWelcome to Dynamic Learning Model Bot (DLM Bot). This bot can be
 print(f"\033[31mDLM Bot gets smarter for every query asked because it either knows it or learns it for next time\033[0m")
 print(f"\033[31mNOTICE: DLM Bot may sometimes misinterpret input or provide inaccurate responses. Please verify important information independently.\033[0m")
 
-userChoice = input("\nThere are two options: Train the DLM Bot (type 'T') or use it as is (type 'A'): ")
-while userChoice.lower() not in ("t", "a"):
-    userChoice = input("\nPlease type either 'T' or 'A' to proceed: ")
+userChoice = input("\nThere are three options: Train the DLM Bot (type 'T'), use it commercially (type 'C'), OR try the new experimental advanced CoT (type 'E'): ")
+while userChoice.lower() not in ("t", "c", "e"):
+    userChoice = input("\nPlease type either 'T', 'C', or 'E' to proceed: ")
 
 # start the spinner before creating the DLM object
 stop_spinner = threading.Event()
