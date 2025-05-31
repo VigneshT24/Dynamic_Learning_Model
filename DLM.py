@@ -1,4 +1,4 @@
-# Dynamic-Learning Model (DLM) bot that learns how to respond to questions by learning from user input/expectations
+# Dynamic-Learning Model (DLM) bot that learns how to respond to questions by learning from user input/expectations, as well as computationally solve arithmetics
 import difflib
 import string
 import random
@@ -217,10 +217,11 @@ class DLM:
         print(f"\033[{lines}A", end="")
 
     # loading animation for bot thought process
-    def __loadingAnimation(self, input): # no return, void
+    def __loadingAnimation(self, input, duration): # no return, void
         for seconds in range(0, 3):
             print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
-            time.sleep(0.8)
+            time.sleep(duration)
+        print("\n")
 
     def __filtered_input(self, userInput):  # returns filtered string
         """ Filter all the words from 'filler_words' list and remove duplicates """
@@ -264,8 +265,8 @@ class DLM:
     def __perform_advnaced_CoT(self, filtered_query): # no return, void
         """ takes in arithmetic problems that need computation and solves it step by step with reasoning, no memorization """
         print(f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
-        self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it")
-        print(f"\n{'\033[33m'}I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now.{'\033[0m'}")
+        self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
+        self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query.title()}\" now", 0.8)
         persons_mentioned = []
         num_mentioned = []
         operands_mentioned = []
@@ -284,7 +285,7 @@ class DLM:
             cleaned = re.sub(r"[^a-zA-Z]", "", tok).lower()
             if cleaned in self.__nltk_names:
                 persons_mentioned.append(cleaned.capitalize())
-
+        persons_mentioned = {name for name in set(persons_mentioned) if len(name.split()) == 1}
         persons_mentioned = set(persons_mentioned)
 
         # Now have the bot pick out numbers (in order)
@@ -293,12 +294,25 @@ class DLM:
             num_mentioned.append(float(match.group(0)).__str__())
 
         # Then have it find all operand indicating keywords
+        for operand, keywords in self.__computation_identifiers.items():
+            for kw in keywords:
+                for fq in filtered_query.split():
+                    p1 = self.__nlp(kw)
+                    p2 = self.__nlp(fq)
+                    if (p1.vector_norm != 0 and p2.vector_norm != 0 and p1.similarity(p2) > 0.80):
+                        operands_mentioned.append(operand)
+        operands_mentioned = set(operands_mentioned)
 
-        # The bot needs to explain what it has tokenized
-        print(f"{'\033[33m'}I see the names {', '.join(persons_mentioned)} mentioned; they’re likely key to this problem.{'\033[0m'}")
-        print(f"{'\033[33m'}I’ve also identified the numbers: {' and '.join(num_mentioned)}.{'\033[0m'}")
-
-        # Finally compute it and then give the response (if there is any)
+        print("\n")
+        if any(not lst for lst in (num_mentioned, operands_mentioned)): # don't compute if parts are missing
+            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''} {'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+        else: # else, the bot needs to explain what it has tokenized
+            self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned; "
+                                    f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.5)
+            self.__loadingAnimation(f"2.) I’ve also identified the numbers: {' and '.join(num_mentioned)} that I need to compute with", 0.5)
+            self.__loadingAnimation(f"3.) I see that I need to perform a \"{' and '.join(operands_mentioned)}\" operation for this query; I’ll use them to guide my calculation", 0.5)
+            self.__loadingAnimation("Now I have the parts, so let me put it together", 0.8)
+            # Finally compute it and then give the response (if there is any)
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
@@ -323,20 +337,20 @@ class DLM:
                 if (self.__tone != ""):
                     print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
                 if (" ".join(identifier) == ""):
-                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
                 else:
-                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start}\" and they are asking about \"{" ".join(identifier)}\".{'\033[0m'}")
-                self.__loadingAnimation("Let me think about this carefully")
+                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
+                self.__loadingAnimation("Let me think about this carefully", 0.8)
 
                 for s in special_start:
                     for u in filtered_query.split():
                         s_input = self.__nlp(s)
                         u_input = self.__nlp(u)
                         if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.60):
-                            print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier)}\".{'\033[0m'}")
+                            print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier).title()}\".{'\033[0m'}")
 
                 if (best_match_answer is None) or (highest_similarity < 0.65):
-                    print(f"{self.__loadingAnimation("Hmm") or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
+                    print(f"{self.__loadingAnimation("Hmm", 0.8) or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
                     self.__unsure_while_thinking = True
                 else:
                     self.__unsure_while_thinking = False
@@ -346,7 +360,7 @@ class DLM:
                     print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
                     if (self.__nlp_similarity_value is not None):
                         print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
-                    self.__loadingAnimation("Let me recall that answer")
+                    self.__loadingAnimation("Let me recall that answer", 0.8)
         print("\n")
 
     def __generate_response(self, best_match_answer, best_match_question): # no return, void
@@ -498,7 +512,7 @@ class DLM:
                 if (password.lower() == "stop"):
                         self.__mode = "commercial"
                         print("\n")
-                        self.__loadingAnimation("Logging in as Commercial User")
+                        self.__loadingAnimation("Logging in as Commercial User", 0.6)
                         print("\n")
                         break
             if (password == self.__trainingPwd):
@@ -517,14 +531,14 @@ class DLM:
                     confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
                 self.__mode = "training"
                 print("\n")
-                self.__loadingAnimation("Logging in as Trainer")
+                self.__loadingAnimation("Logging in as Trainer", 0.6)
                 print("\n")
         elif (mode.lower() == "c"):
             self.__mode = "commercial"
-            self.__loadingAnimation("Logging in as Commercial User")
+            self.__loadingAnimation("Logging in as Commercial User", 0.6)
         else:
             self.__mode = "experimental"
-            self.__loadingAnimation("Logging in as Experimental")
+            self.__loadingAnimation("Logging in as Experimental", 0.6)
 
     def ask(self, mode):  # no return, void
         """ main method in which the user is able to ask any query and DLM will either answer it or learn it.
