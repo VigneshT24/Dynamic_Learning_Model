@@ -14,7 +14,7 @@ class DLM:
     __nlp = None  # Spacy NLP analysis
     __tone = None # sentimental tone of user query
     __trainingPwd = "371507" # password to enter training mode
-    __mode = None # either "training" or "user"
+    __mode = None # either "training", "commercial", or "experimental"
     __singlePassthrough = True # used to prevent multiple iterations of training prompt
     __unsure_while_thinking = False # if uncertain while thinking, then it will let the user know that
     __nlp_similarity_value = None # saves the similarity value by doing SpaCy calculation (for debugging)
@@ -141,6 +141,14 @@ class DLM:
     # special words that the bot can mention while in "CoT"
     __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate", "mean"]
 
+    # advanced CoT computation identifiers
+    __computation_identifiers = {
+        "add":      ["add", "plus", "sum", "total", "combined", "together", "in all", "in total", "more", "increased by", "gain", "got", "collected", "received"],
+        "subtract": ["subtract", "minus", "less", "difference", "left", "remain", "remaining", "take away", "remove", "lost", "gave", "spent", "give away"],
+        "multiply": ["multiply", "times", "multiplied by", "product", "each", "every"],
+        "divide":   ["divide", "divided by", "split", "shared equally", "per", "share", "shared", "equal parts", "equal groups"]
+    }
+
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
         self.__nlp = spacy.load("en_core_web_lg")
         self.__filename = db_filename
@@ -248,6 +256,11 @@ class DLM:
             self.__tone = "doubtful uncertain"
         else:
             self.__tone = ""
+
+    def perform_advnaced_CoT(self, filtered_query): # FIX ME
+        """ takes in arithmetic problems that need computation and solves it step by step with reasoning, no memorization """
+
+        pass
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
@@ -424,7 +437,7 @@ class DLM:
         else:
             return False
 
-    def __learn(self, query, expectation, category):  # no return, void
+    def __learn(self, expectation, category):  # no return, void
         """ Stores the new query, answer, and category pair in SQL file """
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
@@ -442,7 +455,7 @@ class DLM:
             while (password != self.__trainingPwd):
                 password = input("Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
                 if (password.lower() == "stop"):
-                        self.__mode = "user"
+                        self.__mode = "commercial"
                         print("\n")
                         self.__loadingAnimation("Logging in as Commercial User")
                         print("\n")
@@ -458,16 +471,19 @@ class DLM:
                 print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
                 print("*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
 
-                confirmation = input("Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' to continue: ")
+                confirmation = input("Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
                 while confirmation.lower() != "y":  # trainers must understand the instructions above
                     confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
                 self.__mode = "training"
                 print("\n")
                 self.__loadingAnimation("Logging in as Trainer")
                 print("\n")
-        else:
-            self.__mode = "user"
+        elif (mode.lower() == "c"):
+            self.__mode = "commercial"
             self.__loadingAnimation("Logging in as Commercial User")
+        else:
+            self.__mode = "experimental"
+            self.__loadingAnimation("Logging in as Experimental")
 
     def ask(self, mode):  # no return, void
         """ main method in which the user is able to ask any query and DLM will either answer it or learn it.
@@ -475,7 +491,13 @@ class DLM:
         if (self.__singlePassthrough):
             self.__login_verification(mode)
             self.__singlePassthrough = False
-        print("\nTRAINING MODE") if (self.__mode == "training") else print("\n\nCOMMERCIAL MODE")
+
+        if (self.__mode == "training"):
+            print("\nTRAINING MODE")
+        elif (self.__mode == "commercial"):
+            print("\n\nCOMMERCIAL MODE")
+        else:
+            print("\n\nEXPERIMENTAL MODE")
         self.__query = input("DLM Bot here, ask away: ")
 
         while (self.__query is None or self.__query == ""):
@@ -550,7 +572,7 @@ class DLM:
             while not self.__category or self.__category not in category_options:
                 self.__category = input("You MUST give an appropriate category for the question/answer: ").lower()
 
-            self.__learn(filtered_query, self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
+            self.__learn(self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
             print("I learned something new!")  # confirmation that it went through the whole process
         else:  # only executes when in commercial mode and bot cannot find the answer
             print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
