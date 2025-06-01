@@ -149,30 +149,95 @@ class DLM:
 
     # advanced CoT computation identifiers
     __computation_identifiers = {
+        # add
         "+": [
             "add", "plus", "sum", "total", "combined", "together",
             "in all", "in total", "more", "increased by", "gain",
             "got", "collected", "received", "add up", "accumulate",
             "bring to", "rise by", "grow by", "earned", "pick"
         ],
+        # subtract
         "-": [
             "subtract", "minus", "less", "difference", "left",
             "remain", "remaining", "take away", "remove", "lost",
             "gave", "spent", "give away", "deduct", "decrease by",
             "fell by", "drop by", "leftover", "popped", "ate", "paid"
         ],
+        # multiply
         "*": [
             "multiply", "times", "multiplied by", "product",
             "each", "every", "such", "per box", "per row", "per hour",
             "per week", "double", "triple", "quartet", "twice as many",
             "thrice as many", "x", "such box"
         ],
+        # divide
         "/": [
             "divide", "divided by", "split", "shared equally",
             "per", "share", "shared", "equal parts", "equal groups",
             "out of", "ratio", "quotient", "for each",
             "for every", "into", "average"
+        ],
+        # convert
+        "=": [
+            "inch", "inches",
+            "foot", "feet",
+            "yard", "yards",
+            "cm", "centimeter", "centimeters",
+            "m", "meter", "meters",
+            "mm", "millimeter", "millimeters", "week", "weeks",
+            "second", "seconds", "minute", "minutes", "min",
+            "hour", "hours", "day", "days", "month", "months",
+            "year", "years",
+            # connectors for conversion
+            "to", "into", "convert", "conversion"
         ]
+    }
+
+    # for SI conversion and CoT
+    __units = {
+        # distance units (base = meters)
+        "inch": 0.0254,
+        "inches": 0.0254,
+
+        "foot": 0.3048,
+        "feet": 0.3048,
+
+        "yard": 0.9144,
+        "yards": 0.9144,
+
+        "cm": 0.01,
+        "centimeter": 0.01,
+        "centimeters": 0.01,
+
+        "m": 1.0,
+        "meter": 1.0,
+        "meters": 1.0,
+
+        "mm": 0.001,
+        "millimeter": 0.001,
+        "millimeters": 0.001,
+
+        # time units (base = seconds)
+        "second": 1.0,
+        "seconds": 1.0,
+
+        "minute": 60.0,
+        "minutes": 60.0,
+
+        "hour": 3600.0,
+        "hours": 3600.0,
+
+        "day": 86400.0,
+        "days": 86400.0,
+
+        "week": 604800.0,
+        "weeks": 604800.0,
+
+        "month": 2592000.0,
+        "months": 2592000.0,
+
+        "year": 31536000.0,
+        "years": 31536000.0
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
@@ -413,10 +478,13 @@ class DLM:
                         break
                 if operands_mentioned:
                     break
+        if ('=' in operands_mentioned):
+            operands_mentioned.clear()
+            operands_mentioned.append('=')
         operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
         print("\n")
-        if any(not lst for lst in (num_mentioned, operands_mentioned)) or num_mentioned.__len__() < 2: # don't compute if parts are missing
+        if any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2): # don't compute if parts are missing
             print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else: # else, the bot needs to explain what it has tokenized
             self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
@@ -457,18 +525,73 @@ class DLM:
                     num_mentioned.remove(str(float(temp)))
                 num_mentioned.insert(0, str(float(temp)))
 
-            if len(num_mentioned) == 2 and len(operands_mentioned) == 1:
+            # conversion problem
+            if len(num_mentioned) == 1 and len(operands_mentioned) == 1:
+                tokens = filtered_query.lower().split()
+                num0 = float(num_mentioned[0])
+                num_idx = None
+
+                # Find index of the numeric token (either digit or w2n‐convertible)
+                for i, tok in enumerate(tokens):
+                    try:
+                        if float(tok) == num0:
+                            num_idx = i
+                            break
+                    except ValueError:
+                        try:
+                            if float(w2n.word_to_num(tok)) == num0:
+                                num_idx = i
+                                break
+                        except ValueError:
+                            continue
+
+                source_key = None
+                target_key = None
+
+                # Look for the first unit immediately after the number
+                if num_idx is not None:
+                    for tok in tokens[num_idx + 1:]:
+                        for key, val in self.__units.items():
+                            p1 = self.__nlp(tok)
+                            p2 = self.__nlp(key)
+                            if p1[0].lemma_ == p2[0].lemma_ or p1.similarity(p2) > 0.80:
+                                source_key = key
+                                break
+                        if source_key:
+                            break
+
+                # 3) Now scan the entire sentence for the first unit not = source_key => that becomes target_key
+                for tok in tokens:
+                    for key, val in self.__units.items():
+                        p1 = self.__nlp(tok)
+                        p2 = self.__nlp(key)
+                        p3 = self.__nlp(source_key)
+                        if (p1[0].lemma_ == p2[0].lemma_ or p1.similarity(p2) > 0.80) and p2[0].lemma_ != p3[0].lemma_:
+                            target_key = key
+                            break
+                    if target_key:
+                        break
+
+                # 4) Compute only if we have both source_key and target_key
+                if source_key and target_key:
+                    result = (num0 * self.__units[source_key]) / self.__units[target_key]
+                    expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
+                    print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
+                else:
+                    print(f"{'\033[33m'}Could not identify both source and target units.{'\033[0m'}")
+
+            elif len(num_mentioned) == 2 and len(operands_mentioned) == 1:
                 # Retrieve the single operand from the set
                 op = next(iter(operands_mentioned))
                 expr = f"{num_mentioned[0]} {op} {num_mentioned[1]}"
                 result = eval(expr)
-                print(f"{'\033[34m'}Answer: {expr} = {result}{'\033[0m'}")
+                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
 
             elif len(num_mentioned) == 3 and len(operands_mentioned) == 1:
                 op = next(iter(operands_mentioned))
                 expr = f"{num_mentioned[0]} {op} { num_mentioned[1]} {op} {num_mentioned[2]}"
                 result = eval(expr)
-                print(f"{'\033[34m'}Answer: {expr} = {result}{'\033[0m'}")
+                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
 
             elif len(num_mentioned) == 3 and len(operands_mentioned) == 2:
                 # If there are two different operands, iterate through them in insertion order:
@@ -477,7 +600,7 @@ class DLM:
                     f"{num_mentioned[0]} {ops[0]} {num_mentioned[1]} {ops[1]} {num_mentioned[2]}"
                 )
                 result = eval(expr)
-                print(f"{'\033[34m'}Answer: {expr} = {(result)}{'\033[0m'}")
+                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {(result)}{'\033[0m'}")
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
@@ -726,8 +849,15 @@ class DLM:
         self.__set_sentiment_tone(self.__query) # sets global variable sentiment tone
 
         # storing the user-query (filtered, lower-case, no punctuation)
-        filtered_query = self.__filtered_input(
-            self.__query.lower().translate(str.maketrans('', '', string.punctuation)))
+        if self.__mode == "experimental":
+            # Remove every punctuation character except the dot (.)
+            to_remove = string.punctuation.replace(".", "")
+        else:
+            to_remove = string.punctuation
+
+        translation_table = str.maketrans("", "", to_remove)
+
+        filtered_query = self.__filtered_input(self.__query.lower().translate(translation_table))
 
         # match_query is the query without special words to prevent interference with SpaCy similarity
         self.__special_stripped_query = filtered_query
