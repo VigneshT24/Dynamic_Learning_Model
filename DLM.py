@@ -153,13 +153,13 @@ class DLM:
             "add", "plus", "sum", "total", "combined", "together",
             "in all", "in total", "more", "increased by", "gain",
             "got", "collected", "received", "add up", "accumulate",
-            "bring to", "rise by", "grow by", "earned"
+            "bring to", "rise by", "grow by", "earned", "pick"
         ],
         "-": [
             "subtract", "minus", "less", "difference", "left",
             "remain", "remaining", "take away", "remove", "lost",
             "gave", "spent", "give away", "deduct", "decrease by",
-            "fell by", "drop by", "leftover", "popped"
+            "fell by", "drop by", "leftover", "popped", "ate", "paid"
         ],
         "*": [
             "multiply", "times", "multiplied by", "product",
@@ -305,8 +305,8 @@ class DLM:
         arithmetic_ending_phrases = [
             "total", "all", "left", "leftover", "remaining", "altogether", "together", "each", "spend", "per",
             "sum", "combined", "add up", "accumulate", "bring to", "rise by", "grow by", "earned", "in all", "in total",
-            "difference", "deduct", "decrease by", "fell by", "drop by",
-            "multiply", "times", "product", "received", "gave",
+            "difference", "deduct", "decrease by", "fell by", "drop by", "ate",
+            "multiply", "times", "product", "received", "gave", "pick", "paid",
             "split", "shared equally", "equal parts", "equal groups", "ratio", "quotient", "average", "out of", "into"
         ]
         filtered_query = filtered_query.title()
@@ -340,9 +340,16 @@ class DLM:
         for match in re_pattern.finditer(filtered_query):
             num_mentioned.append(float(match.group(0)).__str__())
 
-        # additionally, "double" "triple" "quadruple" also count as numbers
+        # additionally, "double" "triple" "quadruple" also count as numbers, in addition to text numbers (e.g. "three")
         text_nums = ["double", "triple", "quadruple"]
         for match in filtered_query.lower().split():
+            try:
+                num = w2n.word_to_num(match)
+                if (str(float(num)) not in num_mentioned):
+                    num_mentioned.append(str(float(num)))
+                continue
+            except ValueError:
+                pass
             for t in text_nums:
                 p1 = self.__nlp(match)
                 p2 = self.__nlp(t)
@@ -369,19 +376,16 @@ class DLM:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq)
                     if p1[0].lemma_ == p2[0].lemma_:
-                        print("L: ", operand)
                         operands_mentioned.append(operand)
                         found_operand = True
                         break
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq).ratio() > 0.4):
-                        print(operand)
                         operands_mentioned.append(operand)
                         found_operand = True
                         break  # stop checking further keywords for this operand
                 if found_operand:
                     found_operand = False
                     break
-        print(operands_mentioned)
         # If no operands were found in the main pass, check ending phrases as a last resort
         if not operands_mentioned:
             for fq in filtered_query.split():
@@ -416,15 +420,42 @@ class DLM:
             print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else: # else, the bot needs to explain what it has tokenized
             self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
-                                    f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.5)
+                                    f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.4)
             self.__loadingAnimation(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
-                                    f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}", 0.5)
-            self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.5)
-            self.__loadingAnimation(f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.5)
-            self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.8)
+                                    f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}", 0.4)
+            self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.4)
+            self.__loadingAnimation(f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.4)
+            self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.5)
             # Finally compute it and then give the response (if there is any)
 
-            num_mentioned.sort(key=lambda x: float(x), reverse=True)
+            # move "originally" numbers to the front
+            indicators = {"originally", "initially", "at first", "to begin with"}
+
+            tokens = filtered_query.split()
+            temp = None
+            # lowercase copy for matching
+            lower_tokens = [t.lower() for t in tokens]
+
+            for idx, token in enumerate(lower_tokens):
+                if token in indicators:
+                    # check token before
+                    if idx > 0:
+                        candidate = lower_tokens[idx - 1]
+                        try:
+                            temp = (w2n.word_to_num(candidate))
+                        except ValueError:
+                            pass
+                    # check token after
+                    if idx < len(tokens) - 1:
+                        candidate = lower_tokens[idx + 1]
+                        try:
+                            temp = (w2n.word_to_num(candidate))
+                        except ValueError:
+                            pass
+            if temp is not None:
+                if str(float(temp)) in num_mentioned:
+                    num_mentioned.remove(str(float(temp)))
+                num_mentioned.insert(0, str(float(temp)))
 
             if len(num_mentioned) == 2 and len(operands_mentioned) == 1:
                 # Retrieve the single operand from the set
