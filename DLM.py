@@ -548,25 +548,25 @@ class DLM:
                 source_key = None
                 target_key = None
 
-                # Look for the first unit immediately after the number
+                # Look for the first unit immediately after the number for source key
                 if num_idx is not None:
                     for tok in tokens[num_idx + 1:]:
                         for key, val in self.__units.items():
                             p1 = self.__nlp(tok)
                             p2 = self.__nlp(key)
-                            if p1[0].lemma_ == p2[0].lemma_ or p1.similarity(p2) > 0.80:
+                            if p1[0].lemma_ == p2[0].lemma_:
                                 source_key = key
                                 break
                         if source_key:
                             break
 
-                # 3) Now scan the entire sentence for the first unit not = source_key => that becomes target_key
+                # 3) Now scan the entire sentence for the target-key
                 for tok in tokens:
                     for key, val in self.__units.items():
                         p1 = self.__nlp(tok)
                         p2 = self.__nlp(key)
                         p3 = self.__nlp(source_key)
-                        if (p1[0].lemma_ == p2[0].lemma_ or p1.similarity(p2) > 0.80) and p2[0].lemma_ != p3[0].lemma_:
+                        if (p1[0].lemma_ == p2[0].lemma_) and (p2[0].lemma_ != p3[0].lemma_):
                             target_key = key
                             break
                     if target_key:
@@ -575,6 +575,7 @@ class DLM:
                 # 4) Compute only if we have both source_key and target_key
                 if source_key and target_key:
                     result = (num0 * self.__units[source_key]) / self.__units[target_key]
+                    self.__loadingAnimation(f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer", 0.4)
                     expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
                     print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
                 else:
@@ -604,7 +605,7 @@ class DLM:
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
-        print("\nThought Process:")
+        print("\nThought Process (Yellow):")
         if (filtered_query is None or filtered_query == ""):
             print(f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
         else:
