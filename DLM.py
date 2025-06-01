@@ -8,6 +8,8 @@ import sqlite3
 import re
 import nltk
 from nltk.corpus import names
+from word2number import w2n
+
 
 class DLM:
     __filename = None  # knowledge-base (SQL)
@@ -47,7 +49,7 @@ class DLM:
     __filler_words = [
 
         # articles & determiners (words that don't add meaning to sentence)
-        "a", "an", "the", "some", "any", "many", "each", "every", "either", "neither", "this", "that", "these", "those",
+        "a", "an", "the", "some", "any", "many", "every", "each", "either", "neither", "this", "that", "these", "those",
         "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all", "something", "possible",
 
         # pronouns (general pronouns that don’t change meaning)
@@ -147,10 +149,30 @@ class DLM:
 
     # advanced CoT computation identifiers
     __computation_identifiers = {
-        "+": ["add", "plus", "sum", "total", "combined", "together", "in all", "in total", "more", "increased by", "gain", "got", "collected", "received"],
-        "-": ["subtract", "minus", "less", "difference", "left", "remain", "remaining", "take away", "remove", "lost", "gave", "spent", "give away"],
-        "*": ["multiply", "times", "multiplied by", "product", "each", "every"],
-        "/": ["divide", "divided by", "split", "shared equally", "per", "share", "shared", "equal parts", "equal groups"]
+        "+": [
+            "add", "plus", "sum", "total", "combined", "together",
+            "in all", "in total", "more", "increased by", "gain",
+            "got", "collected", "received", "add up", "accumulate",
+            "bring to", "rise by", "grow by", "earned"
+        ],
+        "-": [
+            "subtract", "minus", "less", "difference", "left",
+            "remain", "remaining", "take away", "remove", "lost",
+            "gave", "spent", "give away", "deduct", "decrease by",
+            "fell by", "drop by", "leftover", "popped"
+        ],
+        "*": [
+            "multiply", "times", "multiplied by", "product",
+            "each", "every", "such", "per box", "per row", "per hour",
+            "per week", "double", "triple", "quartet", "twice as many",
+            "thrice as many", "x", "such box"
+        ],
+        "/": [
+            "divide", "divided by", "split", "shared equally",
+            "per", "share", "shared", "equal parts", "equal groups",
+            "out of", "ratio", "quotient", "for each",
+            "for every", "into", "average"
+        ]
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
@@ -238,8 +260,17 @@ class DLM:
                 filtered_words.append(word)
 
             # otherwise, only keep non-fillers
-            elif word_lowered not in self.__filler_words:
-                filtered_words.append(word)
+            else:
+                # In experimental mode, keep any computation keyword even if it's also a filler
+                is_computation_kw = any(
+                    word_lowered == kw.lower()
+                    for kws in self.__computation_identifiers.values()
+                    for kw in kws
+                )
+                if word_lowered not in self.__filler_words or (
+                        self.__mode == "experimental" and is_computation_kw
+                ):
+                    filtered_words.append(word)
 
         # remove duplicates while preserving order
         unique_words = list(dict.fromkeys(filtered_words))
@@ -268,8 +299,16 @@ class DLM:
         self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
         self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query.title()}\" now", 0.8)
         persons_mentioned = []
+        items_mentioned = []
         num_mentioned = []
         operands_mentioned = []
+        arithmetic_ending_phrases = [
+            "total", "all", "left", "leftover", "remaining", "altogether", "together", "each", "spend", "per",
+            "sum", "combined", "add up", "accumulate", "bring to", "rise by", "grow by", "earned", "in all", "in total",
+            "difference", "deduct", "decrease by", "fell by", "drop by",
+            "multiply", "times", "product", "received", "gave",
+            "split", "shared equally", "equal parts", "equal groups", "ratio", "quotient", "average", "out of", "into"
+        ]
         filtered_query = filtered_query.title()
         doc = self.__nlp(filtered_query)
 
@@ -288,31 +327,126 @@ class DLM:
         persons_mentioned = {name for name in set(persons_mentioned) if len(name.split()) == 1}
         persons_mentioned = set(persons_mentioned)
 
+        # Have the bot pick out item names (in order) using SpaCy
+        for token in doc:
+            if token.pos_ == "PROPN":
+                cleaned = re.sub(r'\d+', "", token.text).strip()
+                if cleaned and cleaned not in persons_mentioned:
+                    items_mentioned.append(cleaned)
+        items_mentioned = set(items_mentioned)
+
         # Now have the bot pick out numbers (in order)
         re_pattern = re.compile(r"\d+(\.\d+)?")
         for match in re_pattern.finditer(filtered_query):
             num_mentioned.append(float(match.group(0)).__str__())
 
+        # additionally, "double" "triple" "quadruple" also count as numbers
+        text_nums = ["double", "triple", "quadruple"]
+        for match in filtered_query.lower().split():
+            for t in text_nums:
+                p1 = self.__nlp(match)
+                p2 = self.__nlp(t)
+                if p1[0].lemma_ == p2[0].lemma_:
+                    if t == "double":
+                        num_mentioned.append(float(2).__str__())
+                    elif t == "triple":
+                        num_mentioned.append(float(3).__str__())
+                    else:
+                        num_mentioned.append(float(4).__str__())
+
+        tokens_lower = filtered_query.lower().split()
+        last_three = set(tokens_lower[-4:])  # only the final 3 words
+
         # Then have it find all operand indicating keywords
-        for operand, keywords in self.__computation_identifiers.items():
-            for kw in keywords:
-                for fq in filtered_query.split():
+        found_operand = False
+        for fq in filtered_query.split():
+            fq_l = fq.lower()
+            # If this word is one of the ending phrases and sits among the last five, skip it
+            if fq_l in arithmetic_ending_phrases and fq_l in last_three:
+                continue
+            for operand, keywords in self.__computation_identifiers.items():
+                for kw in keywords:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq)
-                    if (p1.vector_norm != 0 and p2.vector_norm != 0 and p1.similarity(p2) > 0.80):
+                    if p1[0].lemma_ == p2[0].lemma_:
+                        print("L: ", operand)
                         operands_mentioned.append(operand)
-        operands_mentioned = set(operands_mentioned)
+                        found_operand = True
+                        break
+                    if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq).ratio() > 0.4):
+                        print(operand)
+                        operands_mentioned.append(operand)
+                        found_operand = True
+                        break  # stop checking further keywords for this operand
+                if found_operand:
+                    found_operand = False
+                    break
+        print(operands_mentioned)
+        # If no operands were found in the main pass, check ending phrases as a last resort
+        if not operands_mentioned:
+            for fq in filtered_query.split():
+                p_fq = self.__nlp(fq)
+
+                # Replace exact matching with a spaCy similarity check against ending_phrases
+                matched_ep = None
+                for ep in arithmetic_ending_phrases:
+                    p_ep = self.__nlp(ep)
+                    if p_ep.vector_norm != 0 and p_fq.vector_norm != 0 and p_ep.similarity(p_fq) > 0.50:
+                        matched_ep = ep
+                        break
+
+                if not matched_ep:
+                    continue
+
+                # Now matched_ep roughly corresponds to an ending phrase; find its operand via spaCy
+                for operand, keywords in self.__computation_identifiers.items():
+                    for kw in keywords:
+                        p_kw = self.__nlp(kw)
+                        if p_kw.vector_norm != 0 and p_fq.vector_norm != 0 and p_kw.similarity(p_fq) > 0.70:
+                            operands_mentioned.append(operand)
+                            break
+                    if operands_mentioned:
+                        break
+                if operands_mentioned:
+                    break
+        operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
         print("\n")
-        if any(not lst for lst in (num_mentioned, operands_mentioned)): # don't compute if parts are missing
-            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''} {'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+        if any(not lst for lst in (num_mentioned, operands_mentioned)) or num_mentioned.__len__() < 2: # don't compute if parts are missing
+            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else: # else, the bot needs to explain what it has tokenized
-            self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned; "
+            self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
                                     f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.5)
-            self.__loadingAnimation(f"2.) I’ve also identified the numbers: {' and '.join(num_mentioned)} that I need to compute with", 0.5)
-            self.__loadingAnimation(f"3.) I see that I need to perform a \"{' and '.join(operands_mentioned)}\" operation for this query; I’ll use them to guide my calculation", 0.5)
-            self.__loadingAnimation("Now I have the parts, so let me put it together", 0.8)
+            self.__loadingAnimation(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
+                                    f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}", 0.5)
+            self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.5)
+            self.__loadingAnimation(f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.5)
+            self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.8)
             # Finally compute it and then give the response (if there is any)
+
+            num_mentioned.sort(key=lambda x: float(x), reverse=True)
+
+            if len(num_mentioned) == 2 and len(operands_mentioned) == 1:
+                # Retrieve the single operand from the set
+                op = next(iter(operands_mentioned))
+                expr = f"{num_mentioned[0]} {op} {num_mentioned[1]}"
+                result = eval(expr)
+                print(f"{'\033[34m'}Answer: {expr} = {result}{'\033[0m'}")
+
+            elif len(num_mentioned) == 3 and len(operands_mentioned) == 1:
+                op = next(iter(operands_mentioned))
+                expr = f"{num_mentioned[0]} {op} { num_mentioned[1]} {op} {num_mentioned[2]}"
+                result = eval(expr)
+                print(f"{'\033[34m'}Answer: {expr} = {result}{'\033[0m'}")
+
+            elif len(num_mentioned) == 3 and len(operands_mentioned) == 2:
+                # If there are two different operands, iterate through them in insertion order:
+                ops = list(operands_mentioned)
+                expr = (
+                    f"{num_mentioned[0]} {ops[0]} {num_mentioned[1]} {ops[1]} {num_mentioned[2]}"
+                )
+                result = eval(expr)
+                print(f"{'\033[34m'}Answer: {expr} = {(result)}{'\033[0m'}")
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
