@@ -41,8 +41,8 @@ spinner.join() # wait until it cleans the line
 print("SQL Server ready!\n")
 
 if (userChoice.lower() == "e"):
-    print("As of now, advanced CoT can only perform basic arithmetic word problems. More development coming soon.")
-
+    print("As of now, advanced CoT can only perform basic arithmetic and conversion word problems. More development coming soon.")
+    
 while canContinue:
     bot.ask(userChoice)
     choice = input("Continue (Y/N): ")
