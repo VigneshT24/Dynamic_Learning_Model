@@ -646,6 +646,14 @@ class DLM:
                 )
                 result = eval(expr)
                 print(f"{'\033[34m'}Arithmetic Answer: {expr} = {(result)}{'\033[0m'}")
+            elif len(num_mentioned) == 4 and len(operands_mentioned) == 3:
+                # If there are two different operands, iterate through them in insertion order:
+                ops = list(operands_mentioned)
+                expr = (
+                    f"{num_mentioned[0]} {ops[0]} {num_mentioned[1]} {ops[1]} {num_mentioned[2]} {ops[2]} {num_mentioned[2]}"
+                )
+                result = eval(expr)
+                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {(result)}{'\033[0m'}")
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
