@@ -624,36 +624,18 @@ class DLM:
                     print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
                 else:
                     print(f"{'\033[33m'}Could not identify both source and target units.{'\033[0m'}")
+            # regular arithmetic operations
+            elif len(num_mentioned) >= 2 and len(operands_mentioned) == len(num_mentioned) - 1:
+                # Build a string like "n0 op0 n1 op1 n2 ... op_{N-2} n_{N-1}"
+                parts = []
+                for i, num in enumerate(num_mentioned):
+                    parts.append(str(num))
+                    if i < len(operands_mentioned):
+                        parts.append(operands_mentioned[i])
+                expr = " ".join(parts)
 
-            elif len(num_mentioned) == 2 and len(operands_mentioned) == 1:
-                # Retrieve the single operand from the set
-                op = next(iter(operands_mentioned))
-                expr = f"{num_mentioned[0]} {op} {num_mentioned[1]}"
                 result = eval(expr)
-                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
-
-            elif len(num_mentioned) == 3 and len(operands_mentioned) == 1:
-                op = next(iter(operands_mentioned))
-                expr = f"{num_mentioned[0]} {op} { num_mentioned[1]} {op} {num_mentioned[2]}"
-                result = eval(expr)
-                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
-
-            elif len(num_mentioned) == 3 and len(operands_mentioned) == 2:
-                # If there are two different operands, iterate through them in insertion order:
-                ops = list(operands_mentioned)
-                expr = (
-                    f"{num_mentioned[0]} {ops[0]} {num_mentioned[1]} {ops[1]} {num_mentioned[2]}"
-                )
-                result = eval(expr)
-                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {(result)}{'\033[0m'}")
-            elif len(num_mentioned) == 4 and len(operands_mentioned) == 3:
-                # If there are two different operands, iterate through them in insertion order:
-                ops = list(operands_mentioned)
-                expr = (
-                    f"{num_mentioned[0]} {ops[0]} {num_mentioned[1]} {ops[1]} {num_mentioned[2]} {ops[2]} {num_mentioned[2]}"
-                )
-                result = eval(expr)
-                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {(result)}{'\033[0m'}")
+                print(f"\033[34mArithmetic Answer: {expr} = {result}\033[0m")
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
