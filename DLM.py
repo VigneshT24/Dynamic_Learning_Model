@@ -154,11 +154,11 @@ class DLM:
             "add", "plus", "sum", "total", "combined", "together",
             "in all", "in total", "more", "increased by", "gain",
             "got", "collected", "received", "add up", "accumulate",
-            "bring to", "rise by", "grow by", "earned", "pick"
+            "bring to", "rise by", "grow by", "earned", "pick", "+"
         ],
         # subtract
         "-": [
-            "subtract", "minus", "less", "difference", "left",
+            "subtract", "minus", "less", "difference", "left", "-",
             "remain", "remaining", "take away", "remove", "lost",
             "gave", "spent", "give away", "deduct", "decrease by",
             "fell by", "drop by", "leftover", "popped", "ate", "paid"
@@ -168,14 +168,14 @@ class DLM:
             "multiply", "times", "multiplied by", "product",
             "each", "every", "such", "per box", "per row", "per hour",
             "per week", "double", "triple", "quartet", "twice as many",
-            "thrice as many", "x", "such box"
+            "thrice as many", "x", "such box", "*", "×"
         ],
         # divide
         "/": [
             "divide", "divided by", "split", "shared equally",
             "per", "share", "shared", "equal parts", "equal groups",
             "out of", "ratio", "quotient", "for each",
-            "for every", "into", "average"
+            "for every", "into", "average", "/", "÷"
         ],
         # convert
         "=": [
@@ -184,12 +184,18 @@ class DLM:
             "yard", "yards",
             "cm", "centimeter", "centimeters",
             "m", "meter", "meters",
-            "mm", "millimeter", "millimeters", "week", "weeks",
+            "mm", "millimeter", "millimeters",
+            "week", "weeks",
             "second", "seconds", "minute", "minutes", "min",
             "hour", "hours", "day", "days", "month", "months",
             "year", "years",
-            # connectors for conversion
-            "to", "into", "convert", "conversion"
+            "km", "kilometer", "kilometers",
+            "mile", "miles",
+            "mg", "milligram", "milligrams",
+            "g", "gram", "grams",
+            "kg", "kilogram", "kilograms",
+            "lb", "pound", "pounds",
+            "oz", "ounce", "ounces"
         ]
     }
 
@@ -217,6 +223,13 @@ class DLM:
         "millimeter": 0.001,
         "millimeters": 0.001,
 
+        "km": 1000.0,
+        "kilometer": 1000.0,
+        "kilometers": 1000.0,
+
+        "mile": 1609.344,
+        "miles": 1609.344,
+
         # time units (base = seconds)
         "second": 1.0,
         "seconds": 1.0,
@@ -237,7 +250,28 @@ class DLM:
         "months": 2592000.0,
 
         "year": 31536000.0,
-        "years": 31536000.0
+        "years": 31536000.0,
+
+        # mass units (base = kg)
+        "mg": 0.000001,
+        "milligram": 0.000001,
+        "milligrams": 0.000001,
+
+        "g": 0.001,
+        "gram": 0.001,
+        "grams": 0.001,
+
+        "kg": 1.0,
+        "kilogram": 1.0,
+        "kilograms": 1.0,
+
+        "lb": 0.45359237,
+        "pound": 0.45359237,
+        "pounds": 0.45359237,
+
+        "oz": 0.0283495231,
+        "ounce": 0.0283495231,
+        "ounces": 0.0283495231
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
@@ -441,10 +475,12 @@ class DLM:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq)
                     if p1[0].lemma_ == p2[0].lemma_:
+                        print("lemma: " + str(p1) + " " + str(p2))
                         operands_mentioned.append(operand)
                         found_operand = True
                         break
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq).ratio() > 0.4):
+                        print("regular: " + str(p1) + " " + str(p2))
                         operands_mentioned.append(operand)
                         found_operand = True
                         break  # stop checking further keywords for this operand
@@ -851,14 +887,16 @@ class DLM:
 
         # storing the user-query (filtered, lower-case, no punctuation)
         if self.__mode == "experimental":
-            # Remove every punctuation character except the dot (.)
-            to_remove = string.punctuation.replace(".", "")
+            # We want to keep the following
+            keep = {".", "+", "-", "*", "/", "="}
+            to_remove = "".join(ch for ch in string.punctuation if ch not in keep)
         else:
             to_remove = string.punctuation
 
         translation_table = str.maketrans("", "", to_remove)
-
-        filtered_query = self.__filtered_input(self.__query.lower().translate(translation_table))
+        filtered_query = self.__filtered_input(
+            self.__query.lower().translate(translation_table)
+        )
 
         # match_query is the query without special words to prevent interference with SpaCy similarity
         self.__special_stripped_query = filtered_query
