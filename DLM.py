@@ -10,7 +10,6 @@ import nltk
 from nltk.corpus import names
 from word2number import w2n
 
-
 class DLM:
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
@@ -274,9 +273,15 @@ class DLM:
         "ounce": 0.0283495231,
         "ounces": 0.0283495231,
 
+        # volume units (base = liter)
         "ml": 0.001,
         "milliliter": 0.001,
-        "milliliters": 0.001
+        "milliliters": 0.001,
+
+        "l": 1.0,
+        "L": 1.0,
+        "liter": 1.0,
+        "liters": 1.0
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
