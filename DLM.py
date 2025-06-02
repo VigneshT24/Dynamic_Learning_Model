@@ -191,6 +191,7 @@ class DLM:
             "year", "years",
             "km", "kilometer", "kilometers",
             "mile", "miles",
+            "ml", "milliliter", "milliliters",
             "mg", "milligram", "milligrams",
             "g", "gram", "grams",
             "kg", "kilogram", "kilograms",
@@ -271,7 +272,11 @@ class DLM:
 
         "oz": 0.0283495231,
         "ounce": 0.0283495231,
-        "ounces": 0.0283495231
+        "ounces": 0.0283495231,
+
+        "ml": 0.001,
+        "milliliter": 0.001,
+        "milliliters": 0.001
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
@@ -475,12 +480,10 @@ class DLM:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq)
                     if p1[0].lemma_ == p2[0].lemma_:
-                        print("lemma: " + str(p1) + " " + str(p2))
                         operands_mentioned.append(operand)
                         found_operand = True
                         break
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq).ratio() > 0.4):
-                        print("regular: " + str(p1) + " " + str(p2))
                         operands_mentioned.append(operand)
                         found_operand = True
                         break  # stop checking further keywords for this operand
