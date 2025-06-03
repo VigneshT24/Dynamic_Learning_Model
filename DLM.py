@@ -180,15 +180,15 @@ class DLM:
         # convert
         "=": [
             "inch", "inches",
-            "foot", "feet",
-            "yard", "yards",
+            "foot", "feet", "ft",
+            "yard", "yards", "yd",
             "cm", "centimeter", "centimeters",
             "m", "meter", "meters",
             "mm", "millimeter", "millimeters",
             "week", "weeks",
             "second", "seconds", "minute", "minutes", "min",
             "hour", "hours", "day", "days", "month", "months",
-            "year", "years",
+            "year", "years", "yr",
             "km", "kilometer", "kilometers",
             "mile", "miles",
             "ml", "milliliter", "milliliters",
@@ -208,9 +208,11 @@ class DLM:
 
         "foot": 0.3048,
         "feet": 0.3048,
+        "ft": 0.3048,
 
         "yard": 0.9144,
         "yards": 0.9144,
+        "yd": 0.9144,
 
         "cm": 0.01,
         "centimeter": 0.01,
@@ -252,6 +254,7 @@ class DLM:
 
         "year": 31536000.0,
         "years": 31536000.0,
+        "yr": 31536000.0,
 
         # mass units (base = kg)
         "mg": 0.000001,
@@ -581,13 +584,33 @@ class DLM:
                 num0 = float(num_mentioned[0])
                 num_idx = None
 
+                # redefine text_nums to be a dictionary instead
+                text_nums = {
+                    "half": 0.5,
+                    "double": 2.0,
+                    "triple": 3.0,
+                    "quadruple": 4.0
+                }
+
                 # Find index of the numeric token (either digit or w2n‐convertible)
                 for i, tok in enumerate(tokens):
+                    lower_tok = tok.lower()
+
+                    # Check if tok is one of the special words
+                    if lower_tok in text_nums:
+                        if text_nums[lower_tok] == num0:
+                            num_idx = i
+                            break
+                        else:
+                            continue  # skip parsing this token further
+
+                    # Otherwise try parsing as a standard float
                     try:
                         if float(tok) == num0:
                             num_idx = i
                             break
                     except ValueError:
+                        # If that fails, try converting via w2n.word_to_num
                         try:
                             if float(w2n.word_to_num(tok)) == num0:
                                 num_idx = i
