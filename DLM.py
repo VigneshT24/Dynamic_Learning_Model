@@ -157,10 +157,11 @@ class DLM:
         ],
         # subtract
         "-": [
-            "subtract", "minus", "less", "difference", "left", "-",
+            "subtract", "minus", "less", "difference", "left", "−",
             "remain", "remaining", "take away", "remove", "lost",
             "gave", "spent", "give away", "deduct", "decrease by",
-            "fell by", "drop by", "leftover", "popped", "ate", "paid"
+            "fell by", "drop by", "leftover", "popped", "ate", "paid",
+            "sold", "sells"
         ],
         # multiply
         "*": [
@@ -471,27 +472,27 @@ class DLM:
                         num_mentioned.append(float(4).__str__())
 
         tokens_lower = filtered_query.lower().split()
-        last_three = set(tokens_lower[-2:])  # only the final 2 words
+        last_two = set(tokens_lower[-2:])  # only the final 2 words from filtered input
 
         # Then have it find all operand indicating keywords
         found_operand = False
         for fq in filtered_query.split():
-            # print(filtered_query.split())
             fq_l = fq.lower()
             # If this word is one of the ending phrases and sits among the last five, skip it
-            if fq_l in arithmetic_ending_phrases and fq_l in last_three:
+            if fq_l in arithmetic_ending_phrases and fq_l in last_two:
                 continue
+            if fq_l in {"+", "-", "*", "/"}:
+                operands_mentioned.append(fq_l)
+                continue  # move on to the next token
             for operand, keywords in self.__computation_identifiers.items():
                 for kw in keywords:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq)
-                    if p1[0].lemma_ == p2[0].lemma_:
-                        print(str(p1[0]) + " L " + str(p2[0]))
+                    if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
                         operands_mentioned.append(operand)
                         found_operand = True
                         break
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq).ratio() > 0.4):
-                        print(str(p1) + " " + str(p2))
                         operands_mentioned.append(operand)
                         found_operand = True
                         break  # stop checking further keywords for this operand
@@ -529,7 +530,6 @@ class DLM:
             operands_mentioned.clear()
             operands_mentioned.append('=')
         operands_mentioned = list(dict.fromkeys(operands_mentioned))
-        print(operands_mentioned)
 
         print("\n")
         if any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2): # don't compute if parts are missing
