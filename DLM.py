@@ -415,7 +415,7 @@ class DLM:
             "total", "all", "left", "leftover", "remaining", "altogether", "together", "each", "spend", "per",
             "sum", "combined", "add up", "accumulate", "bring to", "rise by", "grow by", "earned", "in all", "in total",
             "difference", "deduct", "decrease by", "fell by", "drop by", "ate",
-            "multiply", "times", "product", "received", "gave", "pick", "paid",
+            "multiply", "times", "product", "received", "pick", "paid", "gave",
             "split", "shared equally", "equal parts", "equal groups", "ratio", "quotient", "average", "out of", "into"
         ]
         filtered_query = filtered_query.title()
@@ -471,11 +471,12 @@ class DLM:
                         num_mentioned.append(float(4).__str__())
 
         tokens_lower = filtered_query.lower().split()
-        last_three = set(tokens_lower[-4:])  # only the final 3 words
+        last_three = set(tokens_lower[-2:])  # only the final 2 words
 
         # Then have it find all operand indicating keywords
         found_operand = False
         for fq in filtered_query.split():
+            # print(filtered_query.split())
             fq_l = fq.lower()
             # If this word is one of the ending phrases and sits among the last five, skip it
             if fq_l in arithmetic_ending_phrases and fq_l in last_three:
@@ -485,10 +486,12 @@ class DLM:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq)
                     if p1[0].lemma_ == p2[0].lemma_:
+                        print(str(p1[0]) + " L " + str(p2[0]))
                         operands_mentioned.append(operand)
                         found_operand = True
                         break
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq).ratio() > 0.4):
+                        print(str(p1) + " " + str(p2))
                         operands_mentioned.append(operand)
                         found_operand = True
                         break  # stop checking further keywords for this operand
@@ -526,10 +529,11 @@ class DLM:
             operands_mentioned.clear()
             operands_mentioned.append('=')
         operands_mentioned = list(dict.fromkeys(operands_mentioned))
+        print(operands_mentioned)
 
         print("\n")
         if any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2): # don't compute if parts are missing
-            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else: # else, the bot needs to explain what it has tokenized
             self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
                                     f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.4)
@@ -541,7 +545,7 @@ class DLM:
             # Finally compute it and then give the response (if there is any)
 
             # move "originally" numbers to the front
-            indicators = {"originally", "initially", "at first", "to begin with"}
+            indicators = {"originally", "initially", "at first", "to begin with", "had"}
 
             tokens = filtered_query.split()
             temp = None
@@ -636,6 +640,8 @@ class DLM:
 
                 result = eval(expr)
                 print(f"\033[34mArithmetic Answer: {expr} = {result}\033[0m")
+            else:
+                print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
