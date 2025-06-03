@@ -161,7 +161,7 @@ class DLM:
             "remain", "remaining", "take away", "remove", "lost",
             "gave", "spent", "give away", "deduct", "decrease by",
             "fell by", "drop by", "leftover", "popped", "ate", "paid",
-            "sold", "sells"
+            "sold", "sells", "used", "use", "took"
         ],
         # multiply
         "*": [
@@ -192,100 +192,55 @@ class DLM:
             "km", "kilometer", "kilometers",
             "mile", "miles",
             "ml", "milliliter", "milliliters",
+            "l", "liter", "liters",
             "mg", "milligram", "milligrams",
             "g", "gram", "grams",
             "kg", "kilogram", "kilograms",
             "lb", "pound", "pounds",
-            "oz", "ounce", "ounces"
+            "oz", "ounce", "ounces",
+            "gallon", "gallons",
+            "quart", "quarts",
+            "pint", "pints",
+            "cup", "cups"
         ]
     }
 
     # for SI conversion and CoT
+    # for SI conversion and CoT
     __units = {
         # distance units (base = meters)
-        "inch": 0.0254,
-        "inches": 0.0254,
-
-        "foot": 0.3048,
-        "feet": 0.3048,
-        "ft": 0.3048,
-
-        "yard": 0.9144,
-        "yards": 0.9144,
-        "yd": 0.9144,
-
-        "cm": 0.01,
-        "centimeter": 0.01,
-        "centimeters": 0.01,
-
-        "m": 1.0,
-        "meter": 1.0,
-        "meters": 1.0,
-
-        "mm": 0.001,
-        "millimeter": 0.001,
-        "millimeters": 0.001,
-
-        "km": 1000.0,
-        "kilometer": 1000.0,
-        "kilometers": 1000.0,
-
-        "mile": 1609.344,
-        "miles": 1609.344,
+        "inch": 0.0254, "inches": 0.0254,
+        "foot": 0.3048, "feet": 0.3048, "ft": 0.3048,
+        "yard": 0.9144, "yards": 0.9144, "yd": 0.9144,
+        "cm": 0.01, "centimeter": 0.01, "centimeters": 0.01,
+        "m": 1.0, "meter": 1.0, "meters": 1.0,
+        "mm": 0.001, "millimeter": 0.001, "millimeters": 0.001,
+        "km": 1000.0, "kilometer": 1000.0, "kilometers": 1000.0,
+        "mile": 1609.344, "miles": 1609.344,
 
         # time units (base = seconds)
-        "second": 1.0,
-        "seconds": 1.0,
-
-        "minute": 60.0,
-        "minutes": 60.0,
-
-        "hour": 3600.0,
-        "hours": 3600.0,
-
-        "day": 86400.0,
-        "days": 86400.0,
-
-        "week": 604800.0,
-        "weeks": 604800.0,
-
-        "month": 2592000.0,
-        "months": 2592000.0,
-
-        "year": 31536000.0,
-        "years": 31536000.0,
-        "yr": 31536000.0,
+        "second": 1.0, "seconds": 1.0,
+        "minute": 60.0, "minutes": 60.0,
+        "hour": 3600.0, "hours": 3600.0,
+        "day": 86400.0, "days": 86400.0,
+        "week": 604800.0, "weeks": 604800.0,
+        "month": 2592000.0, "months": 2592000.0,
+        "year": 31536000.0, "years": 31536000.0, "yr": 31536000.0,
 
         # mass units (base = kg)
-        "mg": 0.000001,
-        "milligram": 0.000001,
-        "milligrams": 0.000001,
-
-        "g": 0.001,
-        "gram": 0.001,
-        "grams": 0.001,
-
-        "kg": 1.0,
-        "kilogram": 1.0,
-        "kilograms": 1.0,
-
-        "lb": 0.45359237,
-        "pound": 0.45359237,
-        "pounds": 0.45359237,
-
-        "oz": 0.0283495231,
-        "ounce": 0.0283495231,
-        "ounces": 0.0283495231,
+        "mg": 0.000001, "milligram": 0.000001, "milligrams": 0.000001,
+        "g": 0.001, "gram": 0.001, "grams": 0.001,
+        "kg": 1.0, "kilogram": 1.0, "kilograms": 1.0,
+        "lb": 0.45359237, "pound": 0.45359237, "pounds": 0.45359237,
+        "oz": 0.0283495231, "ounce": 0.0283495231, "ounces": 0.0283495231,
 
         # volume units (base = liter)
-        "ml": 0.001,
-        "milliliter": 0.001,
-        "milliliters": 0.001,
-
-        "l": 1.0,
-        "L": 1.0,
-        "liter": 1.0,
-        "liters": 1.0
+        "ml": 0.001, "milliliter": 0.001, "milliliters": 0.001,
+        "l": 1.0, "L": 1.0, "liter": 1.0, "liters": 1.0,
+        "gallon": 3.78541, "gallons": 3.78541,
+        "quart": 0.946353, "quarts": 0.946353,
+        "pint": 0.473176, "pints": 0.473176,
+        "cup": 0.236588, "cups": 0.236588
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
@@ -492,15 +447,19 @@ class DLM:
             for operand, keywords in self.__computation_identifiers.items():
                 for kw in keywords:
                     p1 = self.__nlp(kw)
-                    p2 = self.__nlp(fq)
+                    p2 = self.__nlp(fq_l)
                     if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
                         operands_mentioned.append(operand)
                         found_operand = True
-                        break
-                    if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq).ratio() > 0.4):
+                        break # stop checking further keywords for this operand
+                    if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
                         operands_mentioned.append(operand)
                         found_operand = True
-                        break  # stop checking further keywords for this operand
+                        break
+                    elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80: # if it is maybe a spelling mistake
+                        operands_mentioned.append(operand)
+                        found_operand = True
+                        break
                 if found_operand:
                     found_operand = False
                     break
@@ -541,16 +500,16 @@ class DLM:
             print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else: # else, the bot needs to explain what it has tokenized
             self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
-                                    f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.4)
+                                    f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
             self.__loadingAnimation(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
-                                    f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}", 0.4)
-            self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.4)
-            self.__loadingAnimation(f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.4)
-            self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.5)
+                                    f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
+            self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
+            self.__loadingAnimation(f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.2)
+            self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
             # Finally compute it and then give the response (if there is any)
 
             # move "originally" numbers to the front
-            indicators = {"originally", "initially", "at first", "to begin with", "had"}
+            indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had", "savings", "saving"}
 
             tokens = filtered_query.split()
             temp = None
@@ -648,7 +607,7 @@ class DLM:
                 # 4) Compute only if we have both source_key and target_key
                 if source_key and target_key:
                     result = (num0 * self.__units[source_key]) / self.__units[target_key]
-                    self.__loadingAnimation(f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer", 0.4)
+                    self.__loadingAnimation(f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer", 0.2)
                     expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
                     print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
                 else:
