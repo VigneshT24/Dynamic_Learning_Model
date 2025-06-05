@@ -77,7 +77,7 @@ class DLM:
         "before", "behind", "below", "beneath", "beside", "between", "beyond", "by", "low", "high", "despite", "down",
         "during", "happen",
         "except", "for", "from", "in", "inside", "into",
-        "like", "near", "of", "off", "on", "onto", "out", "outside", "over", "past",
+        "like", "near", "off", "on", "onto", "out", "outside", "over", "past",
         "since", "through", "throughout", "till", "to", "toward", "under", "underneath",
         "until", "up", "upon", "with", "within", "without", "aside from", "concerning", "regarding",
 
@@ -407,31 +407,6 @@ class DLM:
         for match in re_pattern.finditer(filtered_query):
             num_mentioned.append(float(match.group(0)).__str__())
 
-        # additionally, "double" "triple" "quadruple" also count as numbers, in addition to text numbers (e.g. "three")
-        text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
-        for match in filtered_query.lower().split():
-            try:
-                num = w2n.word_to_num(match)
-                if (str(float(num)) not in num_mentioned):
-                    num_mentioned.append(str(float(num)))
-                continue
-            except ValueError:
-                pass
-            for t in text_nums:
-                p1 = self.__nlp(match)
-                p2 = self.__nlp(t)
-                if p1[0].lemma_ == p2[0].lemma_:
-                    if t == "double":
-                        num_mentioned.append(float(2).__str__())
-                    elif t == "triple":
-                        num_mentioned.append(float(3).__str__())
-                    elif t == "half":
-                        num_mentioned.append(float(0.5).__str__())
-                    elif t == "a" or t == "an":
-                        num_mentioned.append(float(1.0).__str__())
-                    else:
-                        num_mentioned.append(float(4).__str__())
-
         tokens_lower = filtered_query.lower().split()
         last_two = set(tokens_lower[-2:])  # only the final 2 words from filtered input
 
@@ -450,14 +425,20 @@ class DLM:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq_l)
                     if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
+                        if (kw.lower() == "average"):
+                            operands_mentioned.append("+")
                         operands_mentioned.append(operand)
                         found_operand = True
                         break # stop checking further keywords for this operand
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
+                        if (kw.lower() == "average"):
+                            operands_mentioned.append("+")
                         operands_mentioned.append(operand)
                         found_operand = True
                         break
                     elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80: # if it is maybe a spelling mistake
+                        if (kw.lower() == "average"):
+                            operands_mentioned.append("+")
                         operands_mentioned.append(operand)
                         found_operand = True
                         break
@@ -496,6 +477,31 @@ class DLM:
             operands_mentioned.append('=')
         operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
+        # additionally, "double" "triple" "quadruple" also count as numbers, in addition to text numbers (e.g. "three")
+        text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
+        for match in filtered_query.lower().split():
+            try:
+                num = w2n.word_to_num(match)
+                if (str(float(num)) not in num_mentioned):
+                    num_mentioned.append(str(float(num)))
+                continue
+            except ValueError:
+                pass
+            for t in text_nums:
+                p1 = self.__nlp(match)
+                p2 = self.__nlp(t)
+                if p1[0].lemma_ == p2[0].lemma_:
+                    if t == "double":
+                        num_mentioned.append(float(2).__str__())
+                    elif t == "triple":
+                        num_mentioned.append(float(3).__str__())
+                    elif t == "half":
+                        num_mentioned.append(float(0.5).__str__())
+                    elif ("=" in operands_mentioned) and (t == "a" or t == "an"):
+                        num_mentioned.append(float(1.0).__str__())
+                    elif t == "quadruple":
+                        num_mentioned.append(float(4).__str__())
+
         print("\n")
         if any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2): # don't compute if parts are missing
             print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
@@ -510,7 +516,7 @@ class DLM:
             # Finally compute it and then give the response (if there is any)
 
             # move "originally" numbers to the front
-            indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had", "savings", "saving"}
+            indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had", "savings", "saving", "of"}
 
             tokens = filtered_query.split()
             temp = None
@@ -520,7 +526,7 @@ class DLM:
             for idx, token in enumerate(lower_tokens):
                 if token in indicators:
                     # check token before
-                    if idx > 0:
+                    if idx > 0 and token != "of":
                         candidate = lower_tokens[idx - 1]
                         try:
                             temp = (w2n.word_to_num(candidate))
@@ -616,16 +622,21 @@ class DLM:
                 else:
                     print(f"{'\033[33m'}Could not identify both source and target units.{'\033[0m'}")
             # regular arithmetic operations
-            elif len(num_mentioned) >= 2 and len(operands_mentioned) == len(num_mentioned) - 1:
+            elif len(num_mentioned) >= 2 and (len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
                 # Build a string like "n0 op0 n1 op1 n2 ... op_{N-2} n_{N-1}"
                 parts = []
                 for i, num in enumerate(num_mentioned):
                     parts.append(str(num))
-                    if i < len(operands_mentioned):
+                    if i < (len(num_mentioned) - 1) and ("average" in filtered_query.lower() or (len(operands_mentioned) == 1)):
+                        parts.append(operands_mentioned[0])
+                    elif i < len(operands_mentioned):
                         parts.append(operands_mentioned[i])
                 expr = " ".join(parts)
 
                 result = eval(expr)
+                if ("average" in filtered_query.lower()):
+                    expr = "(" + expr + ") / " + str(len(num_mentioned))
+                    result /= len(num_mentioned)
                 print(f"\033[34mArithmetic Answer: {expr} = {result}\033[0m")
             else:
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
