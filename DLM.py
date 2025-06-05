@@ -206,7 +206,6 @@ class DLM:
     }
 
     # for SI conversion and CoT
-    # for SI conversion and CoT
     __units = {
         # distance units (base = meters)
         "inch": 0.0254, "inches": 0.0254,
