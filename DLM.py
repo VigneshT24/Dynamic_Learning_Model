@@ -48,7 +48,7 @@ class DLM:
     __filler_words = [
 
         # articles & determiners (words that don't add meaning to sentence)
-        "a", "an", "the", "some", "any", "many", "every", "each", "either", "neither", "this", "that", "these", "those",
+        "the", "some", "any", "many", "every", "each", "either", "neither", "this", "that", "these", "those",
         "certain", "another", "such", "whatsoever", "whichever", "whomever", "whatever", "all", "something", "possible",
 
         # pronouns (general pronouns that don’t change meaning)
@@ -408,7 +408,7 @@ class DLM:
             num_mentioned.append(float(match.group(0)).__str__())
 
         # additionally, "double" "triple" "quadruple" also count as numbers, in addition to text numbers (e.g. "three")
-        text_nums = ["half", "double", "triple", "quadruple"]
+        text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
         for match in filtered_query.lower().split():
             try:
                 num = w2n.word_to_num(match)
@@ -427,6 +427,8 @@ class DLM:
                         num_mentioned.append(float(3).__str__())
                     elif t == "half":
                         num_mentioned.append(float(0.5).__str__())
+                    elif t == "a" or t == "an":
+                        num_mentioned.append(float(1.0).__str__())
                     else:
                         num_mentioned.append(float(4).__str__())
 
@@ -544,6 +546,8 @@ class DLM:
 
                 # redefine text_nums to be a dictionary instead
                 text_nums = {
+                    "a": 1.0,
+                    "an": 1.0,
                     "half": 0.5,
                     "double": 2.0,
                     "triple": 3.0,
