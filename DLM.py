@@ -7,6 +7,7 @@ import time
 import sqlite3
 import re
 import nltk
+from better_profanity import profanity
 from nltk.corpus import names
 from word2number import w2n
 
@@ -243,7 +244,21 @@ class DLM:
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
+        """
+        Initialize the Dynamic-Learning Model (DLM) chatbot.
+
+        Parameters:
+            db_filename (str): The SQLite database file used to store and retrieve
+                               question-answer-category triples. Defaults to 'dlm_knowledge.db'.
+
+        Behavior:
+            - Loads the SpaCy NLP model ('en_core_web_lg').
+            - Loads Better-Profanity for profane phrase sensing.
+            - Connects to the specified SQLite database file.
+            - Ensures the required table structure exists (creates if missing).
+        """
         self.__nlp = spacy.load("en_core_web_lg")
+        profanity.load_censor_words()
         self.__filename = db_filename
         self.__create_table_if_missing()
 
@@ -347,7 +362,10 @@ class DLM:
 
     def __set_sentiment_tone(self, orig_input): # no return, void
         """ Looks through unfiltered, original input to see the tone of the query (angry, confused, uncertain, etc) """
-        if (orig_input == orig_input.upper()):
+        is_profane = profanity.contains_profanity(orig_input)
+        if (is_profane):
+            self.__tone = "angry aggressive"
+        elif (orig_input == orig_input.upper()):
             self.__tone = "angry frustrated"
         elif (orig_input.__contains__("?") and orig_input.__contains__("!")):
             self.__tone = "angry confused"
@@ -913,8 +931,23 @@ class DLM:
             self.__loadingAnimation("Logging in as Experimental", 0.6)
 
     def ask(self, mode):  # no return, void
-        """ main method in which the user is able to ask any query and DLM will either answer it or learn it.
-            'mode' should either be [t] for training mode or [a] for commercial mode, no other value will be accepted """
+        """
+        Handle a full user interaction loop with the DLM bot.
+
+        Parameters:
+            mode (str): The access mode. Options:
+                        't' for Training mode,
+                        'c' for Commercial mode,
+                        'e' for Experimental mode.
+
+        Behavior:
+            - Prompts the user for input.
+            - Detects tone, filters input, searches knowledge base.
+            - Performs Chain-of-Thought (CoT) while recalling learnt answer.
+            - If match is found, generates a response.
+            - If in training mode and answer is incorrect, prompts user to teach the bot.
+            - In experimental mode, performs reasoning or arithmetic without memorization.
+        """
         if (self.__singlePassthrough):
             self.__login_verification(mode)
             self.__singlePassthrough = False
