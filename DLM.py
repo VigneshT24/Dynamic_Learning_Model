@@ -161,7 +161,7 @@ class DLM:
             "remain", "remaining", "take away", "remove", "lost",
             "gave", "spent", "give away", "deduct", "decrease by",
             "fell by", "drop by", "leftover", "popped", "ate", "paid",
-            "sold", "sells", "used", "use", "took"
+            "sold", "sells", "used", "use", "took", "absent"
         ],
         # multiply
         "*": [
@@ -174,7 +174,7 @@ class DLM:
         "/": [
             "divide", "divided by", "split", "shared equally",
             "per", "share", "shared", "equal parts", "equal groups",
-            "out of", "ratio", "quotient", "for each",
+            "ratio", "quotient", "for each", "out of",
             "for every", "into", "average", "/", "÷"
         ],
         # convert
@@ -373,7 +373,7 @@ class DLM:
             "total", "all", "left", "leftover", "remaining", "altogether", "together", "each", "spend", "per",
             "sum", "combined", "add up", "accumulate", "bring to", "rise by", "grow by", "earned", "in all", "in total",
             "difference", "deduct", "decrease by", "fell by", "drop by", "ate",
-            "multiply", "times", "product", "received", "pick", "paid", "gave",
+            "multiply", "times", "product", "received", "pick", "paid", "gave", "pay",
             "split", "shared equally", "equal parts", "equal groups", "ratio", "quotient", "average", "out of", "into"
         ]
         filtered_query = filtered_query.title()
@@ -424,24 +424,53 @@ class DLM:
                 for kw in keywords:
                     p1 = self.__nlp(kw)
                     p2 = self.__nlp(fq_l)
+                    word_num_surrounded = re.search(rf'\d+\s*{fq.lower()}\s*\d+', filtered_query.lower())
+
+                    # Direct match or lemma match
                     if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
-                        if (kw.lower() == "average"):
+                        if kw.lower() == "average":
                             operands_mentioned.append("+")
-                        operands_mentioned.append(operand)
-                        found_operand = True
-                        break # stop checking further keywords for this operand
+                        elif kw.lower() == "out of":
+                            if word_num_surrounded:
+                                operands_mentioned.append(operand)
+                                found_operand = True
+                                break  # only break if 'out of' condition is satisfied
+                            continue  # skip adding 'out of' if not surrounded by numbers
+                        else:
+                            operands_mentioned.append(operand)
+                            found_operand = True
+                            break
+
+                    # Vector + string similarity
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
-                        if (kw.lower() == "average"):
+                        if kw.lower() == "average":
                             operands_mentioned.append("+")
-                        operands_mentioned.append(operand)
-                        found_operand = True
-                        break
-                    elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80: # if it is maybe a spelling mistake
-                        if (kw.lower() == "average"):
+                        elif kw.lower() == "out of":
+                            if word_num_surrounded:
+                                operands_mentioned.append(operand)
+                                found_operand = True
+                                break
+                            continue
+                        else:
+                            operands_mentioned.append(operand)
+                            found_operand = True
+                            break
+
+                    # Fallback: high string similarity
+                    elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
+                        if kw.lower() == "average":
                             operands_mentioned.append("+")
-                        operands_mentioned.append(operand)
-                        found_operand = True
-                        break
+                        elif kw.lower() == "out of":
+                            if word_num_surrounded:
+                                operands_mentioned.append(operand)
+                                found_operand = True
+                                break
+                            continue
+                        else:
+                            operands_mentioned.append(operand)
+                            found_operand = True
+                            break
+
                 if found_operand:
                     found_operand = False
                     break
@@ -472,13 +501,10 @@ class DLM:
                         break
                 if operands_mentioned:
                     break
-        if ('=' in operands_mentioned):
-            operands_mentioned.clear()
-            operands_mentioned.append('=')
-        operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
         # additionally, "double" "triple" "quadruple" also count as numbers, in addition to text numbers (e.g. "three")
         text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
+        a_an_detected = False
         for match in filtered_query.lower().split():
             try:
                 num = w2n.word_to_num(match)
@@ -498,9 +524,20 @@ class DLM:
                     elif t == "half":
                         num_mentioned.append(float(0.5).__str__())
                     elif ("=" in operands_mentioned) and (t == "a" or t == "an"):
+                        a_an_detected = True
                         num_mentioned.append(float(1.0).__str__())
                     elif t == "quadruple":
                         num_mentioned.append(float(4).__str__())
+
+        if a_an_detected and len(num_mentioned) > 1:
+            num_mentioned.remove("1.0")
+        if ('=' in operands_mentioned) and (len(num_mentioned) < 2):
+            operands_mentioned.clear()
+            operands_mentioned.append('=')
+        else:
+            if ('=' in operands_mentioned):
+                operands_mentioned = [op for op in operands_mentioned if op != '=']
+        operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
         print("\n")
         if any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2): # don't compute if parts are missing
@@ -546,98 +583,106 @@ class DLM:
 
             # conversion problem
             if len(num_mentioned) == 1 and len(operands_mentioned) == 1:
-                tokens = filtered_query.lower().split()
-                num0 = float(num_mentioned[0])
-                num_idx = None
+                try:
+                    tokens = filtered_query.lower().split()
+                    num0 = float(num_mentioned[0])
+                    num_idx = None
 
-                # redefine text_nums to be a dictionary instead
-                text_nums = {
-                    "a": 1.0,
-                    "an": 1.0,
-                    "half": 0.5,
-                    "double": 2.0,
-                    "triple": 3.0,
-                    "quadruple": 4.0
-                }
+                    # redefine text_nums to be a dictionary instead
+                    text_nums = {
+                        "a": 1.0,
+                        "an": 1.0,
+                        "half": 0.5,
+                        "double": 2.0,
+                        "triple": 3.0,
+                        "quadruple": 4.0
+                    }
 
-                # Find index of the numeric token (either digit or w2n‐convertible)
-                for i, tok in enumerate(tokens):
-                    lower_tok = tok.lower()
+                    # Find index of the numeric token (either digit or w2n‐convertible)
+                    for i, tok in enumerate(tokens):
+                        lower_tok = tok.lower()
 
-                    # Check if tok is one of the special words
-                    if lower_tok in text_nums:
-                        if text_nums[lower_tok] == num0:
-                            num_idx = i
-                            break
-                        else:
-                            continue  # skip parsing this token further
+                        # Check if tok is one of the special words
+                        if lower_tok in text_nums:
+                            if text_nums[lower_tok] == num0:
+                                num_idx = i
+                                break
+                            else:
+                                continue  # skip parsing this token further
 
-                    # Otherwise try parsing as a standard float
-                    try:
-                        if float(tok) == num0:
-                            num_idx = i
-                            break
-                    except ValueError:
-                        # If that fails, try converting via w2n.word_to_num
+                        # Otherwise try parsing as a standard float
                         try:
-                            if float(w2n.word_to_num(tok)) == num0:
+                            if float(tok) == num0:
                                 num_idx = i
                                 break
                         except ValueError:
-                            continue
+                            # If that fails, try converting via w2n.word_to_num
+                            try:
+                                if float(w2n.word_to_num(tok)) == num0:
+                                    num_idx = i
+                                    break
+                            except ValueError:
+                                continue
 
-                source_key = None
-                target_key = None
+                    source_key = None
+                    target_key = None
 
-                # Look for the first unit immediately after the number for source key
-                if num_idx is not None:
-                    for tok in tokens[num_idx + 1:]:
+                    # Look for the first unit immediately after the number for source key
+                    if num_idx is not None:
+                        for tok in tokens[num_idx + 1:]:
+                            for key, val in self.__units.items():
+                                p1 = self.__nlp(tok)
+                                p2 = self.__nlp(key)
+                                if p1[0].lemma_ == p2[0].lemma_:
+                                    source_key = key
+                                    break
+                            if source_key:
+                                break
+
+                    # 3) Now scan the entire sentence for the target-key
+                    for tok in tokens:
                         for key, val in self.__units.items():
                             p1 = self.__nlp(tok)
                             p2 = self.__nlp(key)
-                            if p1[0].lemma_ == p2[0].lemma_:
-                                source_key = key
+                            p3 = self.__nlp(source_key)
+                            if (p1[0].lemma_ == p2[0].lemma_) and (p2[0].lemma_ != p3[0].lemma_):
+                                target_key = key
                                 break
-                        if source_key:
+                        if target_key:
                             break
 
-                # 3) Now scan the entire sentence for the target-key
-                for tok in tokens:
-                    for key, val in self.__units.items():
-                        p1 = self.__nlp(tok)
-                        p2 = self.__nlp(key)
-                        p3 = self.__nlp(source_key)
-                        if (p1[0].lemma_ == p2[0].lemma_) and (p2[0].lemma_ != p3[0].lemma_):
-                            target_key = key
-                            break
-                    if target_key:
-                        break
-
-                # 4) Compute only if we have both source_key and target_key
-                if source_key and target_key:
-                    result = (num0 * self.__units[source_key]) / self.__units[target_key]
-                    self.__loadingAnimation(f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer", 0.2)
-                    expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
-                    print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
-                else:
-                    print(f"{'\033[33m'}Could not identify both source and target units.{'\033[0m'}")
+                    # 4) Compute only if we have both source_key and target_key
+                    if source_key and target_key:
+                        result = (num0 * self.__units[source_key]) / self.__units[target_key]
+                        self.__loadingAnimation(f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer", 0.2)
+                        expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
+                        print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
+                    else:
+                        print(f"{'\033[33m'}Could not identify both source and target units.{'\033[0m'}")
+                except SyntaxError:
+                    print("\033[33mOops! I still mix up conversions and arithmetic sometimes. Working on it!\033[0m")
             # regular arithmetic operations
             elif len(num_mentioned) >= 2 and (len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
                 # Build a string like "n0 op0 n1 op1 n2 ... op_{N-2} n_{N-1}"
                 parts = []
                 for i, num in enumerate(num_mentioned):
                     parts.append(str(num))
-                    if i < (len(num_mentioned) - 1) and ("average" in filtered_query.lower() or (len(operands_mentioned) == 1)):
+                    if i < (len(num_mentioned) - 1) and ("average" in filtered_query.lower()):
+                        parts.append("+")
+                    elif i < (len(num_mentioned) - 1) and (len(operands_mentioned) == 1):
                         parts.append(operands_mentioned[0])
                     elif i < len(operands_mentioned):
                         parts.append(operands_mentioned[i])
                 expr = " ".join(parts)
 
-                result = eval(expr)
-                if ("average" in filtered_query.lower()):
-                    expr = "(" + expr + ") / " + str(len(num_mentioned))
-                    result /= len(num_mentioned)
-                print(f"\033[34mArithmetic Answer: {expr} = {result}\033[0m")
+                try:
+                    result = eval(expr)
+                    if ("average" in filtered_query.lower()):
+                        expr = "(" + expr + ") / " + str(len(num_mentioned))
+                        result /= len(num_mentioned)
+                    print(f"\033[34mArithmetic Answer: {expr} = {result}\033[0m")
+                except SyntaxError:
+                    print(f"\033[34mAh, something about that stumped me. I’ll need to learn more to handle it properly.\033[0m")
             else:
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
 
