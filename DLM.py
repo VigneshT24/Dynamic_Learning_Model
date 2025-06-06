@@ -263,7 +263,19 @@ class DLM:
         self.__create_table_if_missing()
 
     def __create_table_if_missing(self):  # no return, void
-        """initializes a new table if SQL table is missing (only used in constructor)"""
+        """
+        Ensure the existence of the 'knowledge_base' table in the SQLite database; create or modify it if necessary.
+
+        Behavior:
+            - Establishes a connection to the SQLite database specified by self.__filename.
+            - Creates the 'knowledge_base' table if it does not exist, with the following columns:
+                - id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
+                - question (TEXT, NOT NULL, UNIQUE)
+                - answer (TEXT, NOT NULL)
+                - category (TEXT, NOT NULL)
+            - If the table already exists but is missing the 'category' column, the method adds it with a default empty string.
+            - Used exclusively within the class constructor to ensure the database schema is properly initialized.
+        """
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
         # Create table with identifier column if it doesn't exist
@@ -287,7 +299,20 @@ class DLM:
         conn.close()
 
     def __get_category(self, exact_question): # returns category as a string
-        """ returns the category of a specific question from the SQL database """
+        """
+        Retrieve the category (question type) associated with a specific question from the SQLite knowledge base.
+
+        Parameters:
+            exact_question (str): The exact question text used to search the database.
+
+        Returns:
+            str or None: The associated category if found (e.g., 'yesno', 'definition'); otherwise, None.
+
+        Behavior:
+            - Connects to the SQLite database.
+            - Performs a lookup for the given question.
+            - Returns the corresponding category tag if a match exists.
+        """
         conn = sqlite3.connect("dlm_knowledge.db")
         cursor = conn.cursor()
         cursor.execute(
@@ -302,7 +327,20 @@ class DLM:
             return None  # question not found
 
     def __get_specific_question(self, exact_answer): # returns question as a string
-        """ returns the specific question from the SQL database """
+        """
+        Retrieve the original question associated with a given answer from the SQLite knowledge base.
+
+        Parameters:
+            exact_answer (str): The exact answer text used to search the database.
+
+        Returns:
+            str or None: The corresponding question string if found; otherwise, None.
+
+        Behavior:
+            - Connects to the SQLite database.
+            - Searches for a question where the answer matches exactly.
+            - Returns the first matching question, or None if no match exists.
+        """
         conn = sqlite3.connect("dlm_knowledge.db")
         cursor = conn.cursor()
         cursor.execute(
@@ -328,7 +366,23 @@ class DLM:
         print("\n")
 
     def __filtered_input(self, userInput):  # returns filtered string
-        """ Filter all the words from 'filler_words' list and remove duplicates """
+        """
+        Filter out filler words from the user input while preserving important context.
+
+        Parameters:
+            userInput (str): The raw, lowercase-converted user query string.
+
+        Returns:
+            str: A filtered version of the input string with filler words removed and duplicates eliminated.
+
+        Behavior:
+            - Tokenizes the input into words.
+            - Removes filler words unless:
+                - It's the first word and part of the exception list.
+                - The current mode is 'experimental' and the word is a computation keyword.
+            - Preserves word order while removing duplicates.
+            - Joins the remaining words back into a single filtered string.
+        """
         # tokenize user input (split into words)
         words = userInput.lower().split()
 
@@ -344,14 +398,11 @@ class DLM:
             # otherwise, only keep non-fillers
             else:
                 # In experimental mode, keep any computation keyword even if it's also a filler
-                is_computation_kw = any(
-                    word_lowered == kw.lower()
+                is_computation_kw = any(word_lowered == kw.lower()
                     for kws in self.__computation_identifiers.values()
-                    for kw in kws
-                )
-                if word_lowered not in self.__filler_words or (
-                        self.__mode == "experimental" and is_computation_kw
-                ):
+                    for kw in kws)
+
+                if word_lowered not in self.__filler_words or (self.__mode == "experimental" and is_computation_kw):
                     filtered_words.append(word)
 
         # remove duplicates while preserving order
@@ -361,7 +412,23 @@ class DLM:
         return " ".join(unique_words)
 
     def __set_sentiment_tone(self, orig_input): # no return, void
-        """ Looks through unfiltered, original input to see the tone of the query (angry, confused, uncertain, etc) """
+        """
+        Analyze the original user input and assign an appropriate emotional tone.
+
+        Parameters:
+            orig_input (str): The raw, unfiltered user query.
+
+        Behavior:
+            - Detects aggressive language using profanity filtering.
+            - Analyzes punctuation and casing to infer emotional tone such as:
+                - 'angry aggressive' for profane content
+                - 'angry frustrated' for all-uppercase text
+                - 'angry confused' for combined "?" and "!"
+                - 'angry excited' for "!" only
+                - 'confused unclear' for "?" only
+                - 'doubtful uncertain' for ellipses ("..." or "..")
+            - Stores the result in self.__tone as a string label.
+        """
         is_profane = profanity.contains_profanity(orig_input)
         if (is_profane):
             self.__tone = "angry aggressive"
@@ -379,7 +446,21 @@ class DLM:
             self.__tone = ""
 
     def __perform_advnaced_CoT(self, filtered_query): # no return, void
-        """ takes in arithmetic problems that need computation and solves it step by step with reasoning, no memorization """
+        """
+        Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
+
+        Parameters:
+            filtered_query (str): The cleaned user input, expected to be a math- or logic-based question.
+
+        Behavior:
+            - Simulates step-by-step reasoning to solve arithmetic word problems without relying on memorized answers.
+            - Extracts entities including person names, items, numbers, and operations using SpaCy, NLTK, and regex.
+            - Detects arithmetic operations via lexical and semantic matching with predefined keyword sets.
+            - Handles both numeric digits and text-based numbers (e.g., "three", "double").
+            - Supports simple arithmetic expressions and unit conversions (e.g., inches to cm).
+            - Prints the interpreted steps, logical inferences, and the final computed result with contextual explanations.
+            - Displays fallback messages if the query is incomplete or too ambiguous to solve.
+        """
         print(f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
         self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
         self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query.title()}\" now", 0.8)
@@ -705,7 +786,22 @@ class DLM:
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
-        """ Allows the bot to simulate Chain-of-Thought (CoT) by showing thought process step by step, like what it understood and if it knows the answer or not"""
+        """
+        Simulate a Chain-of-Thought (CoT) reasoning process by printing the bot's internal analysis.
+
+        Parameters:
+            filtered_query (str): The cleaned version of the user's question, stripped of filler or trigger words.
+            best_match_question (str): The closest matching question found in the knowledge base.
+            best_match_answer (str): The corresponding answer to the matched question.
+            highest_similarity (float): The calculated string similarity score (0 to 1) for the match.
+
+        Behavior:
+            - Outputs step-by-step reasoning in a conversational format (e.g., interpreting the question's structure and tone).
+            - In experimental mode, calls advanced reasoning (e.g., math parsing or CoT decomposition).
+            - Identifies the question's tone, topic, and potential intent based on interrogative words and SpaCy similarity.
+            - Displays confidence based on similarity metrics and sets flags for uncertain answers.
+            - Uses colorized terminal output and a loading animation to simulate reflective thought.
+        """
         print("\nThought Process (Yellow):")
         if (filtered_query is None or filtered_query == ""):
             print(f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
@@ -754,7 +850,20 @@ class DLM:
         print("\n")
 
     def __generate_response(self, best_match_answer, best_match_question): # no return, void
-        """ Generates different responses based on the category, simulating Natural Language Generation (NLG) """
+        """
+        Generate a dynamic natural language response based on the answer's category.
+
+        Parameters:
+            best_match_answer (str): The stored answer retrieved from the knowledge base.
+            best_match_question (str): The matched user question used to derive category context.
+
+        Behavior:
+            - Determines the question's category using internal tagging (e.g., 'yesno', 'process', etc.).
+            - Selects a category-specific response template to simulate Natural Language Generation (NLG).
+            - Reformats the answer with human-like phrasing and prints it in stylized terminal output.
+            - Handles special formatting for categories like definitions, processes, and deadlines.
+            - Gracefully handles unrecognized categories or missing data.
+        """
         identifier = self.__get_category(best_match_question)
         BLUE = '\033[34m'
         RESET = '\033[0m'
@@ -873,7 +982,20 @@ class DLM:
             print("Cannot retrieve and generate response due to data in unfamiliar category. Please try again later.")
 
     def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
-        """ Semantically analyzes user input and database's best match to see if they can still semantically match using Spacy """
+        """
+        Evaluate semantic similarity between user input and a stored question using SpaCy vectors.
+
+        Parameters:
+            userInput (str): The cleaned or filtered user query.
+            knowledgebaseData (str): A question stored in the knowledge base to compare against.
+
+        Returns:
+            bool: True if semantic similarity exceeds 0.50 threshold, False otherwise.
+
+        Behavior:
+            - Uses SpaCy's vector-based similarity to compare both texts.
+            - Saves the similarity score internally for optional debugging or reporting.
+        """
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
         if (UI_doc.vector_norm != 0 and KB_doc.vector_norm != 0):
@@ -883,7 +1005,18 @@ class DLM:
             return False
 
     def __learn(self, expectation, category):  # no return, void
-        """ Stores the new query, answer, and category pair in SQL file """
+        """
+        Store a new question-answer-category entry in the SQLite knowledge base.
+
+        Parameters:
+            expectation (str): The expected answer or response to the current user query.
+            category (str): The type of question (e.g., 'yesno', 'definition', 'process', etc.).
+
+        Behavior:
+            - Inserts the current stripped user query, along with its answer and category,
+              into the SQLite database.
+            - Uses 'INSERT OR IGNORE' to prevent duplicate entries.
+        """
         conn = sqlite3.connect(self.__filename)
         c = conn.cursor()
         c.execute(
@@ -894,7 +1027,20 @@ class DLM:
         conn.close()
 
     def __login_verification(self, mode): # no return, void
-        """ verifies whether this model is currently being used for training or commercial, and request password if training is chosen """
+        """
+        Verify and initialize the selected access mode (Training, Commercial, or Experimental).
+
+        Parameters:
+            mode (str): The access mode. Options are:
+                        't' - Training mode (requires password and shows training guidelines)
+                        'c' - Commercial mode (no training features, read-only usage)
+                        'e' - Experimental mode (enables reasoning features, no DB writes)
+
+        Behavior:
+            - If mode is 't', prompts for a password and displays mandatory training instructions.
+            - If mode is 'c', enters Commercial mode without training privileges.
+            - If mode is 'e', proceeds with Experimental mode with reasoning capabilities.
+        """
         if (mode.lower() == "t"):
             password = input("Enter the password to enter Training Mode: ")
             while (password != self.__trainingPwd):
