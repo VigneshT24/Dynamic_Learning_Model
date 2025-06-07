@@ -162,13 +162,13 @@ class DLM:
             "remain", "remaining", "take away", "remove", "lost",
             "gave", "spent", "give away", "deduct", "decrease by",
             "fell by", "drop by", "leftover", "popped", "ate", "paid",
-            "sold", "sells", "used", "use", "took", "absent"
+            "sold", "sells", "used", "use", "took", "absent", "broke off"
         ],
         # multiply
         "*": [
             "multiply", "times", "multiplied by", "product",
             "each", "every", "such", "per box", "per row", "per hour",
-            "per week", "double", "triple", "quartet", "twice as many",
+            "per week", "half", "double", "triple", "quadruple", "quartet", "twice as many",
             "thrice as many", "x", "such box", "*", "×"
         ],
         # divide
@@ -466,6 +466,7 @@ class DLM:
         self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query.title()}\" now", 0.8)
         persons_mentioned = []
         items_mentioned = []
+        keywords_mentioned = []
         num_mentioned = []
         operands_mentioned = []
         arithmetic_ending_phrases = [
@@ -527,6 +528,7 @@ class DLM:
 
                     # Direct match or lemma match
                     if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
+                        keywords_mentioned.append(kw.title())
                         if kw.lower() == "average":
                             operands_mentioned.append("+")
                         elif kw.lower() == "out of":
@@ -542,6 +544,7 @@ class DLM:
 
                     # Vector + string similarity
                     if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
+                        keywords_mentioned.append(kw.title())
                         if kw.lower() == "average":
                             operands_mentioned.append("+")
                         elif kw.lower() == "out of":
@@ -557,6 +560,7 @@ class DLM:
 
                     # Fallback: high string similarity
                     elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
+                        keywords_mentioned.append(kw.title())
                         if kw.lower() == "average":
                             operands_mentioned.append("+")
                         elif kw.lower() == "out of":
@@ -573,6 +577,7 @@ class DLM:
                 if found_operand:
                     found_operand = False
                     break
+
         # If no operands were found in the main pass, check ending phrases as a last resort
         if not operands_mentioned:
             for fq in filtered_query.split():
@@ -594,13 +599,14 @@ class DLM:
                     for kw in keywords:
                         p_kw = self.__nlp(kw)
                         if p_kw.vector_norm != 0 and p_fq.vector_norm != 0 and p_kw.similarity(p_fq) > 0.70:
+                            keywords_mentioned.append(kw.title())
                             operands_mentioned.append(operand)
                             break
                     if operands_mentioned:
                         break
                 if operands_mentioned:
                     break
-
+        keywords_mentioned = list(dict.fromkeys(keywords_mentioned))
         # additionally, "double" "triple" "quadruple" also count as numbers, in addition to text numbers (e.g. "three")
         text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
         a_an_detected = False
@@ -779,11 +785,13 @@ class DLM:
                     if ("average" in filtered_query.lower()):
                         expr = "(" + expr + ") / " + str(len(num_mentioned))
                         result /= len(num_mentioned)
-                    print(f"\033[34mArithmetic Answer: {expr} = {result}\033[0m")
+                    print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
                 except SyntaxError:
-                    print(f"\033[34mAh, something about that stumped me. I’ll need to learn more to handle it properly.\033[0m")
+                    print(f"{'\033[34mAh'}, something about that stumped me. I’ll need to learn more to handle it properly.{'\033[0m'}")
             else:
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+                print(f"{'\033[34m'}However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.{'\033[0m'}")
+                print(f"{'\033[34m'}That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?{'\033[0m'}")
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
         """
