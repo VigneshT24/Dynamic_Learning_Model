@@ -1094,9 +1094,11 @@ class DLM:
         elif (mode.lower() == "c"):
             self.__mode = "commercial"
             self.__loadingAnimation("Logging in as Commercial User", 0.6)
+            print("Ask Non-Computational Queries (switch to experimental for computational queries)")
         else:
             self.__mode = "experimental"
             self.__loadingAnimation("Logging in as Experimental", 0.6)
+            print("Ask Computational Problems (Arithmetics and Conversions)")
 
     def ask(self, mode):  # no return, void
         """
