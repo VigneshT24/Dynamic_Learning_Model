@@ -202,7 +202,13 @@ class DLM:
             "gallon", "gallons",
             "quart", "quarts",
             "pint", "pints",
-            "cup", "cups"
+            "cup", "cups",
+            "dollar", "dollars",
+            "cent", "cents",
+            "penny", "pennies",
+            "nickel", "nickels",
+            "dime", "dimes",
+            "quarter", "quarters"
         ]
     }
 
@@ -240,7 +246,15 @@ class DLM:
         "gallon": 3.78541, "gallons": 3.78541,
         "quart": 0.946353, "quarts": 0.946353,
         "pint": 0.473176, "pints": 0.473176,
-        "cup": 0.236588, "cups": 0.236588
+        "cup": 0.236588, "cups": 0.236588,
+
+        # currency units (base = dollar)
+        "dollar": 1.0, "dollars": 1.0,
+        "cent": 0.01, "cents": 0.01,
+        "penny": 0.01, "pennies": 0.01,
+        "nickel": 0.05, "nickels": 0.05,
+        "dime": 0.10, "dimes": 0.10,
+        "quarter": 0.25, "quarters": 0.25
     }
 
     def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
