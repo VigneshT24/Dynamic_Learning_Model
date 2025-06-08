@@ -419,8 +419,19 @@ class DLM:
                 if word_lowered not in self.__filler_words or (self.__mode == "experimental" and is_computation_kw):
                     filtered_words.append(word)
 
-        # remove duplicates while preserving order
-        unique_words = list(dict.fromkeys(filtered_words))
+        # remove duplicates while preserving order (numbers excluded)
+        seen = set()
+        unique_words = []
+        for word in filtered_words:
+            try:
+                float(word)  # Try to treat as number
+                unique_words.append(word)  # Keep numeric strings (duplicates allowed)
+            except ValueError:
+                if word not in seen:
+                    seen.add(word)
+                    unique_words.append(word)
+
+        print(unique_words)
 
         # join the remaining words back into a string
         return " ".join(unique_words)
@@ -828,6 +839,10 @@ class DLM:
         if (filtered_query is None or filtered_query == ""):
             print(f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
         else:
+            sentiment_tone = self.__tone.split()
+
+            if (self.__tone != ""):
+                print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
             if (self.__mode == "experimental"):
                 self.__perform_advnaced_CoT(filtered_query)
             else:
@@ -840,10 +855,6 @@ class DLM:
                 identifier = " ".join(identifier.split())
                 identifier = identifier.split()
 
-                sentiment_tone = self.__tone.split()
-
-                if (self.__tone != ""):
-                    print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
                 if (" ".join(identifier) == ""):
                     print(f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
                 else:
