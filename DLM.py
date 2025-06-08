@@ -312,7 +312,8 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def __get_category(self, exact_question): # returns category as a string
+    @staticmethod
+    def __get_category(exact_question): # returns category as a string
         """
         Retrieve the category (question type) associated with a specific question from the SQLite knowledge base.
 
@@ -340,7 +341,8 @@ class DLM:
         else:
             return None  # question not found
 
-    def __get_specific_question(self, exact_answer): # returns question as a string
+    @staticmethod
+    def __get_specific_question(exact_answer): # returns question as a string
         """
         Retrieve the original question associated with a given answer from the SQLite knowledge base.
 
@@ -368,14 +370,16 @@ class DLM:
         else:
             return None  # question not found
 
+    @staticmethod
     # ANSI escape for moving the cursor up N lines
-    def __move_cursor_up(self, lines): # no return, void
+    def __move_cursor_up(lines): # no return, void
         print(f"\033[{lines}A", end="")
 
+    @staticmethod
     # loading animation for bot thought process
-    def __loadingAnimation(self, input, duration): # no return, void
+    def __loadingAnimation(user_input, duration): # no return, void
         for seconds in range(0, 3):
-            print(f"{'\033[33m'}\r{input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
+            print(f"{'\033[33m'}\r{user_input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
             time.sleep(duration)
         print("\n")
 
@@ -431,8 +435,6 @@ class DLM:
                     seen.add(word)
                     unique_words.append(word)
 
-        print(unique_words)
-
         # join the remaining words back into a string
         return " ".join(unique_words)
 
@@ -455,22 +457,22 @@ class DLM:
             - Stores the result in self.__tone as a string label.
         """
         is_profane = profanity.contains_profanity(orig_input)
-        if (is_profane):
+        if is_profane:
             self.__tone = "angry aggressive"
-        elif (orig_input == orig_input.upper()):
+        elif orig_input == orig_input.upper():
             self.__tone = "angry frustrated"
-        elif (orig_input.__contains__("?") and orig_input.__contains__("!")):
+        elif orig_input.__contains__("?") and orig_input.__contains__("!"):
             self.__tone = "angry confused"
-        elif (orig_input.__contains__("!")):
+        elif orig_input.__contains__("!"):
             self.__tone = "angry excited"
-        elif (orig_input.__contains__("?")):
+        elif orig_input.__contains__("?"):
             self.__tone = "confused unclear"
-        elif (orig_input.__contains__("...") or orig_input.__contains__("..")):
+        elif orig_input.__contains__("...") or orig_input.__contains__(".."):
             self.__tone = "doubtful uncertain"
         else:
             self.__tone = ""
 
-    def __perform_advnaced_CoT(self, filtered_query): # no return, void
+    def __perform_advanced_CoT(self, filtered_query): # no return, void
         """
         Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
 
@@ -638,7 +640,7 @@ class DLM:
         for match in filtered_query.lower().split():
             try:
                 num = w2n.word_to_num(match)
-                if (str(float(num)) not in num_mentioned):
+                if str(float(num)) not in num_mentioned:
                     num_mentioned.append(str(float(num)))
                 continue
             except ValueError:
@@ -665,7 +667,7 @@ class DLM:
             operands_mentioned.clear()
             operands_mentioned.append('=')
         else:
-            if ('=' in operands_mentioned):
+            if '=' in operands_mentioned:
                 operands_mentioned = [op for op in operands_mentioned if op != '=']
         operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
@@ -807,7 +809,7 @@ class DLM:
 
                 try:
                     result = eval(expr)
-                    if ("average" in filtered_query.lower()):
+                    if "average" in filtered_query.lower():
                         expr = "(" + expr + ") / " + str(len(num_mentioned))
                         result /= len(num_mentioned)
                     print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
@@ -836,15 +838,15 @@ class DLM:
             - Uses colorized terminal output and a loading animation to simulate reflective thought.
         """
         print("\nThought Process (Yellow):")
-        if (filtered_query is None or filtered_query == ""):
+        if filtered_query is None or filtered_query == "":
             print(f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
         else:
             sentiment_tone = self.__tone.split()
 
-            if (self.__tone != ""):
+            if self.__tone != "":
                 print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
-            if (self.__mode == "experimental"):
-                self.__perform_advnaced_CoT(filtered_query)
+            if self.__mode == "experimental":
+                self.__perform_advanced_CoT(filtered_query)
             else:
                 interrogative_start = filtered_query.split()[0]
                 identifier = filtered_query
@@ -855,7 +857,7 @@ class DLM:
                 identifier = " ".join(identifier.split())
                 identifier = identifier.split()
 
-                if (" ".join(identifier) == ""):
+                if " ".join(identifier) == "":
                     print(f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
                 else:
                     print(f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
@@ -877,7 +879,7 @@ class DLM:
                     self.__semantic_similarity(self.__special_stripped_query, best_match_question)
                     print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
                     print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
-                    if (self.__nlp_similarity_value is not None):
+                    if self.__nlp_similarity_value is not None:
                         print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
                     self.__loadingAnimation("Let me recall that answer", 0.8)
         print("\n")
@@ -925,14 +927,14 @@ class DLM:
             if ans.startswith(("no", "not", "don't", "do not", "never", "cannot")):
                 template = random.choice(negative_templates)
                 # remove instances of "negative" words to remove redundancy
-                if (ans.__contains__("no, ")):
+                if ans.__contains__("no, "):
                     best_match_answer = best_match_answer.replace("no, ", "", 1)
                 else:
                     best_match_answer = best_match_answer.replace("no ", "", 1)
             else:
                 template = random.choice(affirmative_templates)
                 # remove instances of "affirmative" words to remove redundancy
-                if (ans.__contains__("yes, ")):
+                if ans.__contains__("yes, "):
                     best_match_answer = best_match_answer.replace("yes, ", "", 1)
                 else:
                     best_match_answer = best_match_answer.replace("yes ", "", 1)
@@ -1031,9 +1033,9 @@ class DLM:
         """
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
-        if (UI_doc.vector_norm != 0 and KB_doc.vector_norm != 0):
+        if UI_doc.vector_norm != 0 and KB_doc.vector_norm != 0:
             self.__nlp_similarity_value = UI_doc.similarity(KB_doc)
-            return (self.__nlp_similarity_value > 0.50)
+            return self.__nlp_similarity_value > 0.50
         else:
             return False
 
@@ -1074,17 +1076,17 @@ class DLM:
             - If mode is 'c', enters Commercial mode without training privileges.
             - If mode is 'e', proceeds with Experimental mode with reasoning capabilities.
         """
-        if (mode.lower() == "t"):
+        if mode.lower() == "t":
             password = input("Enter the password to enter Training Mode: ")
-            while (password != self.__trainingPwd):
+            while password != self.__trainingPwd:
                 password = input("Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
-                if (password.lower() == "stop"):
+                if password.lower() == "stop":
                         self.__mode = "commercial"
                         print("\n")
                         self.__loadingAnimation("Logging in as Commercial User", 0.6)
                         print("\n")
                         break
-            if (password == self.__trainingPwd):
+            if password == self.__trainingPwd:
                 # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
                 print(f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
                 print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
@@ -1102,7 +1104,7 @@ class DLM:
                 print("\n")
                 self.__loadingAnimation("Logging in as Trainer", 0.6)
                 print("\n")
-        elif (mode.lower() == "c"):
+        elif mode.lower() == "c":
             self.__mode = "commercial"
             self.__loadingAnimation("Logging in as Commercial User", 0.6)
             print("Ask Non-Computational Queries (switch to experimental for computational queries)")
@@ -1129,19 +1131,19 @@ class DLM:
             - If in training mode and answer is incorrect, prompts user to teach the bot.
             - In experimental mode, performs reasoning or arithmetic without memorization.
         """
-        if (self.__singlePassthrough):
+        if self.__singlePassthrough:
             self.__login_verification(mode)
             self.__singlePassthrough = False
 
-        if (self.__mode == "training"):
+        if self.__mode == "training":
             print("\nTRAINING MODE")
-        elif (self.__mode == "commercial"):
+        elif self.__mode == "commercial":
             print("\n\nCOMMERCIAL MODE")
         else:
             print("\n\nEXPERIMENTAL MODE") # for experimental, there are no data saving in DB
         self.__query = input("DLM Bot here, ask away: ")
 
-        while (self.__query is None or self.__query == ""):
+        while self.__query is None or self.__query == "":
             self.__query = input("Empty input is unacceptable. Please enter something: ")
 
         self.__set_sentiment_tone(self.__query) # sets global variable sentiment tone
@@ -1193,7 +1195,7 @@ class DLM:
         self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if (self.__mode != "experimental"):
+        if self.__mode != "experimental":
             if (not self.__unsure_while_thinking) and ((highest_similarity > 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question))):
                 self.__unsure_while_thinking = False # reset this back to default for next iteration
                 self.__generate_response(best_match_answer, best_match_question)
@@ -1210,7 +1212,7 @@ class DLM:
                     return
 
             # only executes if training option is TRUE
-            if (self.__mode == "training"):
+            if self.__mode == "training":
                 self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM with answer
                 while not self.__expectation:
                     print("Nothing learnt. Moving on.")
