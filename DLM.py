@@ -1116,6 +1116,7 @@ class DLM:
     def ask(self, mode):  # no return, void
         """
         Handle a full user interaction loop with the DLM bot.
+        NOTICE: To make the bot ask questions continuously, implement a loop in your program
 
         Parameters:
             mode (str): The access mode. Options:
