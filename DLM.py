@@ -915,14 +915,47 @@ class DLM:
                 "Yes, {}",
                 "Absolutely, {}",
                 "Certainly, {}",
-                "Indeed, {}"
+                "Indeed, {}",
+                "That's right, {}",
+                "Correct, {}",
+                "You got it, {}",
+                "Sure thing, {}",
+                "Of course, {}",
+                "Definitely, {}",
+                "Without a doubt, {}",
+                "That's true, {}",
+                "Affirmative, {}",
+                "Right on, {}",
+                "You're spot on, {}",
+                "Exactly, {}",
+                "Totally, {}",
+                "No question about it, {}",
+                "100%, {}",
+                "I agree, {}"
             ]
             negative_templates = [
                 "No, {}",
                 "Not at all, {}",
                 "Unfortunately, {}",
-                "Of course not, {}"
+                "Of course not, {}",
+                "That's not correct, {}",
+                "Actually, no, {}",
+                "I'm afraid not, {}",
+                "Nope, {}",
+                "Sorry, but no, {}",
+                "That’s not the case, {}",
+                "Negative, {}",
+                "Not quite, {}",
+                "That’s incorrect, {}",
+                "I'm sorry, {}",
+                "Absolutely not, {}",
+                "Nah, {}",
+                "Doesn’t seem so, {}",
+                "I wouldn't say that, {}",
+                "No way, {}",
+                "That’s a no, {}"
             ]
+
             ans = best_match_answer.strip().lower()
             if ans.startswith(("no", "not", "don't", "do not", "never", "cannot")):
                 template = random.choice(negative_templates)
@@ -945,7 +978,14 @@ class DLM:
             templates = [
                 "To get started, {}. Then, {}. Finally, {}",
                 "First, {}. Next, {}. Lastly, {}",
-                "Begin by {}. After that, {}. Don't forget to {}."
+                "Begin by {}. After that, {}. Don't forget to {}.",
+                "Start with {}. Continue by {}. Finish by {}.",
+                "Initially, {}. Then proceed to {}. End with {}.",
+                "Kick things off by {}. Follow it up with {}. Conclude by {}.",
+                "Your first step is to {}. The second step is to {}. The final step is to {}.",
+                "Commence by {}. Subsequently, {}. Ultimately, {}.",
+                "Start off by {}. Then move on to {}. Finally, make sure you {}.",
+                "Begin with {}. Then take care of {}. Lastly, ensure you {}."
             ]
             steps = best_match_answer.split("; ")  # steps must be separated by a semicolon
             response = random.choice(templates).format(*steps[:3])
@@ -967,7 +1007,18 @@ class DLM:
             templates = [
                 "\"{0}\" refers to {1}",
                 "By definition, \"{0}\" is {1}",
-                "In simple terms, \"{0}\" means {1}"
+                "In simple terms, \"{0}\" means {1}",
+                "\"{0}\" can be described as {1}",
+                "The term \"{0}\" stands for {1}",
+                "Essentially, \"{0}\" is {1}",
+                "\"{0}\" is understood as {1}",
+                "In other words, \"{0}\" is {1}",
+                "To put it simply, \"{0}\" refers to {1}",
+                "\"{0}\" typically means {1}",
+                "When we say \"{0}\", we’re talking about {1}",
+                "\"{0}\" represents {1}",
+                "\"{0}\" is defined as {1}",
+                "You can think of \"{0}\" as {1}"
             ]
             response = random.choice(templates).format(term, best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
@@ -988,7 +1039,19 @@ class DLM:
             templates = [
                 "The deadline for \"{0}\" is {1}",
                 "You need to submit \"{0}\" by {1}",
-                "Make sure to complete \"{0}\" by {1}"
+                "Make sure to complete \"{0}\" by {1}",
+                "\"{0}\" is due on {1}",
+                "Don’t forget, \"{0}\" must be done by {1}",
+                "\"{0}\" has a due date of {1}",
+                "Be sure to finish \"{0}\" before {1}",
+                "Please submit \"{0}\" no later than {1}",
+                "\"{0}\" needs to be turned in by {1}",
+                "The final date to complete \"{0}\" is {1}",
+                "Submission for \"{0}\" closes on {1}",
+                "You have until {1} to complete \"{0}\"",
+                "\"{0}\" is expected to be submitted by {1}",
+                "\"{0}\" must be handed in by {1}",
+                "The cutoff for \"{0}\" is {1}"
             ]
             response = random.choice(templates).format(term, best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
@@ -997,7 +1060,18 @@ class DLM:
             templates = [
                 "You can find it at {0}",
                 "It’s located at {0}",
-                "Head over to {0} for more information"
+                "Head over to {0} for more information",
+                "Check it out at {0}",
+                "Access it via {0}",
+                "You’ll find it here: {0}",
+                "It’s available at {0}",
+                "Navigate to {0} to view it",
+                "You can reach it at {0}",
+                "Visit {0} to learn more",
+                "Take a look at {0}",
+                "More details can be found at {0}",
+                "For further info, go to {0}",
+                "To see it yourself, just go to {0}"
             ]
             best_match_answer = best_match_answer.lower()
             response = random.choice(templates).format(best_match_answer)
@@ -1007,7 +1081,19 @@ class DLM:
             templates = [
                 "Eligibility means {0}",
                 "Eligibility requires that {0}",
-                "Qualification are met only if {0}"
+                "Qualifications are met only if {0}",
+                "To be eligible, {0}",
+                "Meeting eligibility involves {0}",
+                "You qualify only if {0}",
+                "Eligibility is based on whether {0}",
+                "In order to qualify, {0}",
+                "You are eligible when {0}",
+                "The requirements are satisfied if {0}",
+                "Eligibility depends on {0}",
+                "To meet the qualifications, {0}",
+                "Being eligible implies that {0}",
+                "You're considered eligible if {0}",
+                "Eligibility conditions include {0}"
             ]
             best_match_answer = best_match_answer.lower()
             response = random.choice(templates).format(best_match_answer)
@@ -1230,3 +1316,4 @@ class DLM:
                 print("I learned something new!")  # confirmation that it went through the whole process
             else:  # only executes when in commercial mode and bot cannot find the answer
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+            
