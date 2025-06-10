@@ -2,7 +2,17 @@
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=SQLite&logoColor=white)
 
 # Dynamic Learning Model
-A Dynamic Learning Model (DLM) employs a hybrid AI approach to learning and responding to queries, enabling it to become smarter and more knowledgeable in addressing various FAQs related to a topic it has been trained on. Additionally, it can perform non-ambiguous arithmetic and conversion problems while executing a Chain-of-Thought (CoT). Currently, the database is filled with general college-related information to assist college students and university institutions.
+The Dynamic Learning Model (DLM) is a hybrid AI system designed to learn, adapt, and intelligently respond to user queries. It combines natural language understanding with structured reasoning to improve over time as it interacts with users.
+
+Key capabilities include:
+
+* FAQ Handling: Learns and responds to frequently asked questions based on the knowledge it has been trained on.
+
+* Chain-of-Thought (CoT) Reasoning: Performs clear, step by step logic to solve non-ambiguous arithmetic and unit conversion problems.
+
+* Custom Knowledge Integration: Although the default setup includes a database filled with general college-related information, DLM is fully extensible. You can initialize it with an empty SQL database and train it with your own domain-specific knowledge.
+
+Whether you're building a student support bot, a domain-specific assistant, or an adaptive Q&A system, DLM offers a flexible foundation to power your intelligent applications
 
 * This model uses SpaCy, SQLite, & NLTK for many of its functions
 
