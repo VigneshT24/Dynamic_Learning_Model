@@ -11,19 +11,20 @@ from better_profanity import profanity
 from nltk.corpus import names
 from word2number import w2n
 
+
 class DLM:
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
     __expectation = None  # trainer-inputted expected answer to query
-    __category = None # categorizes each question for efficient retrieval and basic NLG in SQL DB
+    __category = None  # categorizes each question for efficient retrieval and basic NLG in SQL DB
     __nlp = None  # Spacy NLP analysis
-    __tone = None # sentimental tone of user query
-    __trainingPwd = "371507" # password to enter training mode
-    __mode = None # either "training", "commercial", or "experimental"
-    __singlePassthrough = True # used to prevent multiple iterations of training prompt
-    __unsure_while_thinking = False # if uncertain while thinking, then it will let the user know that
-    __nlp_similarity_value = None # saves the similarity value by doing SpaCy calculation (for debugging)
-    __special_stripped_query = None # saves query without any special words for reduced interference while vector calculating
+    __tone = None  # sentimental tone of user query
+    __trainingPwd = "371507"  # password to enter training mode
+    __mode = None  # either "training", "commercial", or "experimental"
+    __singlePassthrough = True  # used to prevent multiple iterations of training prompt
+    __unsure_while_thinking = False  # if uncertain while thinking, then it will let the user know that
+    __nlp_similarity_value = None  # saves the similarity value by doing SpaCy calculation (for debugging)
+    __special_stripped_query = None  # saves query without any special words for reduced interference while vector calculating
     __nltk_names = set(name.lower() for name in names.words())
 
     # personalized responses to let the user know that the bot doesn't know the answer
@@ -61,7 +62,8 @@ class DLM:
         "whoever", "wherever", "whenever", "whosoever", "others", "oneself",
 
         # auxiliary (helping) verbs (do not contribute meaning)
-        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do", "does",
+        "get", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "best", "do",
+        "does",
         "did", "doing", "shall", "should", "will", "would", "can", "could", "may", "might", "must", "bad", "dare",
         "need", "want",
         "used", "shallnt", "shouldve", "wouldve", "couldve", "mustve", "mightve", "mustnt", "good",
@@ -134,14 +136,14 @@ class DLM:
 
     # used for Chain-of-Thought (CoT) feature
     __exception_fillers = [
-        "who",        "whom",       "whose",      "what",
-        "which",      "when",       "where",      "why",
-        "is",         "are",        "am",         "was",
-        "were",       "do",         "does",       "did",
-        "have",       "has",        "had",        "can",
-        "could",      "will",       "would",      "shall",
-        "should",     "may",        "might",      "must",
-        "show",       "list",       "give",       "how", "i"
+        "who", "whom", "whose", "what",
+        "which", "when", "where", "why",
+        "is", "are", "am", "was",
+        "were", "do", "does", "did",
+        "have", "has", "had", "can",
+        "could", "will", "would", "shall",
+        "should", "may", "might", "must",
+        "show", "list", "give", "how", "i"
     ]
 
     # special words that the bot can mention while in "CoT"
@@ -257,7 +259,7 @@ class DLM:
         "quarter": 0.25, "quarters": 0.25
     }
 
-    def __init__(self, db_filename="dlm_knowledge.db"): # initializes SQL database & SpaCy NLP
+    def __init__(self, db_filename="dlm_knowledge.db"):  # initializes SQL database & SpaCy NLP
         """
         Initialize the Dynamic-Learning Model (DLM) chatbot.
 
@@ -313,7 +315,7 @@ class DLM:
         conn.close()
 
     @staticmethod
-    def __get_category(exact_question): # returns category as a string
+    def __get_category(exact_question):  # returns category as a string
         """
         Retrieve the category (question type) associated with a specific question from the SQLite knowledge base.
 
@@ -342,7 +344,7 @@ class DLM:
             return None  # question not found
 
     @staticmethod
-    def __get_specific_question(exact_answer): # returns question as a string
+    def __get_specific_question(exact_answer):  # returns question as a string
         """
         Retrieve the original question associated with a given answer from the SQLite knowledge base.
 
@@ -372,12 +374,12 @@ class DLM:
 
     @staticmethod
     # ANSI escape for moving the cursor up N lines
-    def __move_cursor_up(lines): # no return, void
+    def __move_cursor_up(lines):  # no return, void
         print(f"\033[{lines}A", end="")
 
     @staticmethod
     # loading animation for bot thought process
-    def __loadingAnimation(user_input, duration): # no return, void
+    def __loadingAnimation(user_input, duration):  # no return, void
         for seconds in range(0, 3):
             print(f"{'\033[33m'}\r{user_input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
             time.sleep(duration)
@@ -417,8 +419,8 @@ class DLM:
             else:
                 # In experimental mode, keep any computation keyword even if it's also a filler
                 is_computation_kw = any(word_lowered == kw.lower()
-                    for kws in self.__computation_identifiers.values()
-                    for kw in kws)
+                                        for kws in self.__computation_identifiers.values()
+                                        for kw in kws)
 
                 if word_lowered not in self.__filler_words or (self.__mode == "experimental" and is_computation_kw):
                     filtered_words.append(word)
@@ -438,7 +440,7 @@ class DLM:
         # join the remaining words back into a string
         return " ".join(unique_words)
 
-    def __set_sentiment_tone(self, orig_input): # no return, void
+    def __set_sentiment_tone(self, orig_input):  # no return, void
         """
         Analyze the original user input and assign an appropriate emotional tone.
 
@@ -472,7 +474,7 @@ class DLM:
         else:
             self.__tone = ""
 
-    def __perform_advanced_CoT(self, filtered_query): # no return, void
+    def __perform_advanced_CoT(self, filtered_query):  # no return, void
         """
         Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
 
@@ -488,9 +490,11 @@ class DLM:
             - Prints the interpreted steps, logical inferences, and the final computed result with contextual explanations.
             - Displays fallback messages if the query is incomplete or too ambiguous to solve.
         """
-        print(f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
+        print(
+            f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
         self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
-        self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query.title()}\" now", 0.8)
+        self.__loadingAnimation(
+            f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query.title()}\" now", 0.8)
         persons_mentioned = []
         items_mentioned = []
         keywords_mentioned = []
@@ -570,7 +574,8 @@ class DLM:
                             break
 
                     # Vector + string similarity
-                    if p1.vector_norm != 0 and p2.vector_norm != 0 and (p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
+                    if p1.vector_norm != 0 and p2.vector_norm != 0 and (
+                            p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
                         keywords_mentioned.append(kw.title())
                         if kw.lower() == "average":
                             operands_mentioned.append("+")
@@ -672,20 +677,29 @@ class DLM:
         operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
         print("\n")
-        if any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2): # don't compute if parts are missing
-            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
-        else: # else, the bot needs to explain what it has tokenized
-            self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
-                                    f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
-            self.__loadingAnimation(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
-                                    f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
-            self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
-            self.__loadingAnimation(f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.2)
+        if any(not lst for lst in (num_mentioned, operands_mentioned)) or (
+                '=' not in operands_mentioned and num_mentioned.__len__() < 2):  # don't compute if parts are missing
+            print(
+                f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+        else:  # else, the bot needs to explain what it has tokenized
+            self.__loadingAnimation(
+                f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
+                f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
+            self.__loadingAnimation(
+                f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
+                f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
+                0.2)
+            self.__loadingAnimation(
+                f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
+            self.__loadingAnimation(
+                f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
+                0.2)
             self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
             # Finally compute it and then give the response (if there is any)
 
             # move "originally" numbers to the front
-            indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had", "savings", "saving", "of"}
+            indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had",
+                          "savings", "saving", "of"}
 
             tokens = filtered_query.split()
             temp = None
@@ -786,7 +800,9 @@ class DLM:
                     # 4) Compute only if we have both source_key and target_key
                     if source_key and target_key:
                         result = (num0 * self.__units[source_key]) / self.__units[target_key]
-                        self.__loadingAnimation(f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer", 0.2)
+                        self.__loadingAnimation(
+                            f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer",
+                            0.2)
                         expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
                         print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
                     else:
@@ -794,7 +810,8 @@ class DLM:
                 except SyntaxError:
                     print("\033[33mOops! I still mix up conversions and arithmetic sometimes. Working on it!\033[0m")
             # regular arithmetic operations
-            elif len(num_mentioned) >= 2 and (len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
+            elif len(num_mentioned) >= 2 and (
+                    len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
                 # Build a string like "n0 op0 n1 op1 n2 ... op_{N-2} n_{N-1}"
                 parts = []
                 for i, num in enumerate(num_mentioned):
@@ -814,13 +831,17 @@ class DLM:
                         result /= len(num_mentioned)
                     print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
                 except SyntaxError:
-                    print(f"{'\033[34mAh'}, something about that stumped me. I’ll need to learn more to handle it properly.{'\033[0m'}")
+                    print(
+                        f"{'\033[34mAh'}, something about that stumped me. I’ll need to learn more to handle it properly.{'\033[0m'}")
             else:
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
-                print(f"{'\033[34m'}However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.{'\033[0m'}")
-                print(f"{'\033[34m'}That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?{'\033[0m'}")
+                print(
+                    f"{'\033[34m'}However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.{'\033[0m'}")
+                print(
+                    f"{'\033[34m'}That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?{'\033[0m'}")
 
-    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity): # no return, void
+    def __generate_thought(self, filtered_query, best_match_question, best_match_answer,
+                           highest_similarity):  # no return, void
         """
         Simulate a Chain-of-Thought (CoT) reasoning process by printing the bot's internal analysis.
 
@@ -839,18 +860,21 @@ class DLM:
         """
         print("\nThought Process (Yellow):")
         if filtered_query is None or filtered_query == "":
-            print(f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
+            print(
+                f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
         else:
             sentiment_tone = self.__tone.split()
 
             if self.__tone != "":
-                print(f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
+                print(
+                    f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
             if self.__mode == "experimental":
                 self.__perform_advanced_CoT(filtered_query)
             else:
                 interrogative_start = filtered_query.split()[0]
                 identifier = filtered_query
-                special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation", "meaning"] # special word in different form
+                special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation",
+                                 "meaning"]  # special word in different form
                 for word in special_start:
                     identifier = identifier.replace(word, "")
                 # collapse any extra spaces
@@ -858,33 +882,41 @@ class DLM:
                 identifier = identifier.split()
 
                 if " ".join(identifier) == "":
-                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+                    print(
+                        f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
                 else:
-                    print(f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
+                    print(
+                        f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
                 self.__loadingAnimation("Let me think about this carefully", 0.8)
 
                 for s in special_start:
                     for u in filtered_query.split():
                         s_input = self.__nlp(s)
                         u_input = self.__nlp(u)
-                        if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (s_input.similarity(u_input) > 0.60):
-                            print(f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier).title()}\".{'\033[0m'}")
+                        if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (
+                                s_input.similarity(u_input) > 0.60):
+                            print(
+                                f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier).title()}\".{'\033[0m'}")
 
                 if (best_match_answer is None) or (highest_similarity < 0.65):
-                    print(f"{self.__loadingAnimation("Hmm", 0.8) or ''} {'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
+                    print(
+                        f"{self.__loadingAnimation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
                     self.__unsure_while_thinking = True
                 else:
                     self.__unsure_while_thinking = False
                     DB_identifier = self.__get_specific_question(best_match_answer)
                     self.__semantic_similarity(self.__special_stripped_query, best_match_question)
-                    print(f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
-                    print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
+                    print(
+                        f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
+                    print(
+                        f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
                     if self.__nlp_similarity_value is not None:
-                        print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
+                        print(
+                            f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
                     self.__loadingAnimation("Let me recall that answer", 0.8)
         print("\n")
 
-    def __generate_response(self, best_match_answer, best_match_question): # no return, void
+    def __generate_response(self, best_match_answer, best_match_question):  # no return, void
         """
         Generate a dynamic natural language response based on the answer's category.
 
@@ -974,7 +1006,7 @@ class DLM:
             response = template.format(best_match_answer)
             print(f"\n{BLUE}{response}{RESET}\n")
 
-        elif identifier == "process": # when training, make sure there are only 3 steps for "process"
+        elif identifier == "process":  # when training, make sure there are only 3 steps for "process"
             templates = [
                 "To get started, {}. Then, {}. Finally, {}",
                 "First, {}. Next, {}. Lastly, {}",
@@ -1147,7 +1179,7 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def __login_verification(self, mode): # no return, void
+    def __login_verification(self, mode):  # no return, void
         """
         Verify and initialize the selected access mode (Training, Commercial, or Experimental).
 
@@ -1165,27 +1197,34 @@ class DLM:
         if mode.lower() == "t":
             password = input("Enter the password to enter Training Mode: ")
             while password != self.__trainingPwd:
-                password = input("Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
+                password = input(
+                    "Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
                 if password.lower() == "stop":
-                        self.__mode = "commercial"
-                        print("\n")
-                        self.__loadingAnimation("Logging in as Commercial User", 0.6)
-                        print("\n")
-                        break
+                    self.__mode = "commercial"
+                    print("\n")
+                    self.__loadingAnimation("Logging in as Commercial User", 0.6)
+                    print("\n")
+                    break
             if password == self.__trainingPwd:
                 # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
-                print(f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
+                print(
+                    f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
                 print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
-                print("*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
-                print("*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
+                print(
+                    "*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
+                print(
+                    "*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
                 print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
                 print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
                 print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
-                print("*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
+                print(
+                    "*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
 
-                confirmation = input("Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
+                confirmation = input(
+                    "Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
                 while confirmation.lower() != "y":  # trainers must understand the instructions above
-                    confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
+                    confirmation = input(
+                        "You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
                 self.__mode = "training"
                 print("\n")
                 self.__loadingAnimation("Logging in as Trainer", 0.6)
@@ -1227,13 +1266,13 @@ class DLM:
         elif self.__mode == "commercial":
             print("\n\nCOMMERCIAL MODE")
         else:
-            print("\n\nEXPERIMENTAL MODE") # for experimental, there are no data saving in DB
+            print("\n\nEXPERIMENTAL MODE")  # for experimental, there are no data saving in DB
         self.__query = input("DLM Bot here, ask away: ")
 
         while self.__query is None or self.__query == "":
             self.__query = input("Empty input is unacceptable. Please enter something: ")
 
-        self.__set_sentiment_tone(self.__query) # sets global variable sentiment tone
+        self.__set_sentiment_tone(self.__query)  # sets global variable sentiment tone
 
         # storing the user-query (filtered, lower-case, no punctuation)
         if self.__mode == "experimental":
@@ -1250,7 +1289,8 @@ class DLM:
 
         # match_query is the query without special words to prevent interference with SpaCy similarity
         self.__special_stripped_query = filtered_query
-        special_exceptions = ["definition", "explanation", "description", "comparison", "calculation", "translation", "meaning"]
+        special_exceptions = ["definition", "explanation", "description", "comparison", "calculation", "translation",
+                              "meaning"]
         for word in special_exceptions:
             self.__special_stripped_query = self.__special_stripped_query.replace(word, "")
         # collapse any extra spaces
@@ -1283,8 +1323,10 @@ class DLM:
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if self.__mode != "experimental":
-            if (not self.__unsure_while_thinking) and ((highest_similarity > 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question))):
-                self.__unsure_while_thinking = False # reset this back to default for next iteration
+            if (not self.__unsure_while_thinking) and ((highest_similarity > 0.65) or (
+                    best_match_answer and self.__semantic_similarity(self.__special_stripped_query,
+                                                                     best_match_question))):
+                self.__unsure_while_thinking = False  # reset this back to default for next iteration
                 self.__generate_response(best_match_answer, best_match_question)
                 if self.__mode == "training":
                     self.__expectation = input("Is this what you expected (Y/N): ")
@@ -1300,11 +1342,13 @@ class DLM:
 
             # only executes if training option is TRUE
             if self.__mode == "training":
-                self.__expectation = input("I'm not sure. Train me with the expected response: ")  # train DLM with answer
+                self.__expectation = input(
+                    "I'm not sure. Train me with the expected response: ")  # train DLM with answer
                 while not self.__expectation:
                     print("Nothing learnt. Moving on.")
                     return
-                self.__category = input("Which category does that question/answer belong to (yesno, process, definition, deadline, location, generic, eligibility): ").lower()
+                self.__category = input(
+                    "Which category does that question/answer belong to (yesno, process, definition, deadline, location, generic, eligibility): ").lower()
 
                 # used for generated response template
                 category_options = ["yesno", "process", "definition", "deadline", "location", "generic", "eligibility"]
@@ -1312,8 +1356,8 @@ class DLM:
                 while not self.__category or self.__category not in category_options:
                     self.__category = input("You MUST give an appropriate category for the question/answer: ").lower()
 
-                self.__learn(self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
+                self.__learn(self.__expectation,
+                             self.__category)  # learn this new question and answer pair and add to knowledgebase
                 print("I learned something new!")  # confirmation that it went through the whole process
             else:  # only executes when in commercial mode and bot cannot find the answer
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
-            
