@@ -1151,7 +1151,6 @@ class DLM:
             return False
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
-        print(KB_doc)
         if UI_doc.vector_norm != 0 and KB_doc.vector_norm != 0:
             self.__nlp_similarity_value = UI_doc.similarity(KB_doc)
             return self.__nlp_similarity_value > 0.50
