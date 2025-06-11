@@ -259,13 +259,13 @@ class DLM:
         "quarter": 0.25, "quarters": 0.25
     }
 
-    def __init__(self, db_filename="dlm_knowledge.db"):  # initializes SQL database & SpaCy NLP
+    def __init__(self, db_filename):  # initializes SQL database & SpaCy NLP
         """
         Initialize the Dynamic-Learning Model (DLM) chatbot.
 
         Parameters:
             db_filename (str): The SQLite database file used to store and retrieve
-                               question-answer-category triples. Defaults to 'dlm_knowledge.db'.
+                               question-answer-category triples.
 
         Behavior:
             - Loads the SpaCy NLP model ('en_core_web_lg').
@@ -1316,7 +1316,7 @@ class DLM:
                 best_match_question = stored_question
                 best_match_answer = stored_answer
 
-        # Basic "Chain of Thought" (CoT) Feature
+        # "Chain of Thought" (CoT) Feature
         self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
