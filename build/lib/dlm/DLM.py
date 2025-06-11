@@ -264,7 +264,7 @@ class DLM:
         Initialize the Dynamic-Learning Model (DLM) chatbot.
 
         Parameters:
-            db_filename (str): The SQLite database file used to store and retrieve
+            db_filename (str): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
         Behavior:
@@ -896,21 +896,21 @@ class DLM:
                             print(
                                 f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier).title()}\".{'\033[0m'}")
 
-                if (best_match_answer is None) or (highest_similarity < 0.65):
-                    print(
-                        f"{self.__loadingAnimation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let them know that.{'\033[0m'}")
+                self.__semantic_similarity(self.__special_stripped_query, best_match_question)
+                spacy_proceed = self.__nlp_similarity_value is not None
+                if (best_match_answer is None) or (highest_similarity < 0.65 and (spacy_proceed and self.__nlp_similarity_value < 0.70)):
+                    print(f"{'\033[33m'}The closest match is only {int(highest_similarity * 100)}% similar when I used sequence matching.{'\033[0m'}")
+                    if spacy_proceed:
+                        print(f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
+                    print(f"{self.__loadingAnimation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let the user know that.{'\033[0m'}")
                     self.__unsure_while_thinking = True
                 else:
                     self.__unsure_while_thinking = False
                     DB_identifier = self.__get_specific_question(best_match_answer)
-                    self.__semantic_similarity(self.__special_stripped_query, best_match_question)
-                    print(
-                        f"{'\033[33m'}Ah ha! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
-                    print(
-                        f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
-                    if self.__nlp_similarity_value is not None:
-                        print(
-                            f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
+                    print(f"{'\033[33m'}Yes! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
+                    print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
+                    if spacy_proceed:
+                        print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
                     self.__loadingAnimation("Let me recall that answer", 0.8)
         print("\n")
 
@@ -1252,8 +1252,8 @@ class DLM:
             - Detects tone, filters input, searches knowledge base.
             - Performs Chain-of-Thought (CoT) while recalling learnt answer.
             - If match is found, generates a response.
-            - If in training mode and answer is incorrect, prompts user to teach the bot.
-            - In experimental mode, performs reasoning or arithmetic without memorization.
+            - If in training mode and answer is incorrect or not found, prompts user to teach the bot.
+            - In experimental mode, performs reasoning or arithmetic without using database.
         """
         if self.__singlePassthrough:
             self.__login_verification(mode)
@@ -1321,7 +1321,7 @@ class DLM:
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if self.__mode != "experimental":
-            if (not self.__unsure_while_thinking) and ((highest_similarity > 0.65) or (
+            if (not self.__unsure_while_thinking) and ((highest_similarity >= 0.65) or (
                     best_match_answer and self.__semantic_similarity(self.__special_stripped_query,
                                                                      best_match_question))):
                 self.__unsure_while_thinking = False  # reset this back to default for next iteration
