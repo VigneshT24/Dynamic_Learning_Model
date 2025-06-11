@@ -314,8 +314,7 @@ class DLM:
         conn.commit()
         conn.close()
 
-    @staticmethod
-    def __get_category(exact_question):  # returns category as a string
+    def __get_category(self, exact_question):  # returns category as a string
         """
         Retrieve the category (question type) associated with a specific question from the SQLite knowledge base.
 
@@ -330,7 +329,7 @@ class DLM:
             - Performs a lookup for the given question.
             - Returns the corresponding category tag if a match exists.
         """
-        conn = sqlite3.connect("dlm_knowledge.db")
+        conn = sqlite3.connect(self.__filename)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT category FROM knowledge_base WHERE question = ?",
@@ -343,8 +342,7 @@ class DLM:
         else:
             return None  # question not found
 
-    @staticmethod
-    def __get_specific_question(exact_answer):  # returns question as a string
+    def __get_specific_question(self, exact_answer):  # returns question as a string
         """
         Retrieve the original question associated with a given answer from the SQLite knowledge base.
 
@@ -359,7 +357,7 @@ class DLM:
             - Searches for a question where the answer matches exactly.
             - Returns the first matching question, or None if no match exists.
         """
-        conn = sqlite3.connect("dlm_knowledge.db")
+        conn = sqlite3.connect(self.__filename)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT question FROM knowledge_base WHERE answer = ?",
