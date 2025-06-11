@@ -264,7 +264,7 @@ class DLM:
         Initialize the Dynamic-Learning Model (DLM) chatbot.
 
         Parameters:
-            db_filename (str): The SQLite database file used to store and retrieve
+            db_filename (str): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
         Behavior:
@@ -1252,8 +1252,8 @@ class DLM:
             - Detects tone, filters input, searches knowledge base.
             - Performs Chain-of-Thought (CoT) while recalling learnt answer.
             - If match is found, generates a response.
-            - If in training mode and answer is incorrect, prompts user to teach the bot.
-            - In experimental mode, performs reasoning or arithmetic without memorization.
+            - If in training mode and answer is incorrect or not found, prompts user to teach the bot.
+            - In experimental mode, performs reasoning or arithmetic without using database.
         """
         if self.__singlePassthrough:
             self.__login_verification(mode)
