@@ -1,0 +1,4 @@
+nltk
+spacy
+better_profanity
+word2number
