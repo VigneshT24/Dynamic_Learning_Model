@@ -898,7 +898,7 @@ class DLM:
 
                 self.__semantic_similarity(self.__special_stripped_query, best_match_question)
                 spacy_proceed = self.__nlp_similarity_value is not None
-                if (best_match_answer is None) or (highest_similarity < 0.65 and (spacy_proceed and self.__nlp_similarity_value < 0.70)):
+                if (best_match_answer is None) or (highest_similarity < 0.65 and (spacy_proceed and self.__nlp_similarity_value < 0.85)):
                     print(f"{'\033[33m'}The closest match is only {int(highest_similarity * 100)}% similar when I used sequence matching.{'\033[0m'}")
                     if spacy_proceed:
                         print(f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
