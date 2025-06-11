@@ -1147,6 +1147,8 @@ class DLM:
             - Uses SpaCy's vector-based similarity to compare both texts.
             - Saves the similarity score internally for optional debugging or reporting.
         """
+        if userInput is None or knowledgebaseData is None:
+            return False
         UI_doc = self.__nlp(userInput)
         KB_doc = self.__nlp(knowledgebaseData)
         print(KB_doc)
