@@ -1236,7 +1236,7 @@ class DLM:
         else:
             self.__mode = "experimental"
             self.__loadingAnimation("Logging in as Experimental", 0.6)
-            print("Ask Computational Problems (Arithmetics and Conversions)")
+            print("Ask Computational Problems (Arithmetics or Conversions)")
 
     def ask(self, mode):  # no return, void
         """
