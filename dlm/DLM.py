@@ -531,11 +531,6 @@ class DLM:
                     items_mentioned.append(cleaned)
         items_mentioned = set(items_mentioned)
 
-        # Now have the bot pick out numbers (in order)
-        re_pattern = re.compile(r"\d+(\.\d+)?")
-        for match in re_pattern.finditer(filtered_query):
-            num_mentioned.append(float(match.group(0)).__str__())
-
         tokens_lower = filtered_query.lower().split()
         last_two = set(tokens_lower[-2:])  # only the final 2 words from filtered input
 
@@ -637,19 +632,31 @@ class DLM:
                 if operands_mentioned:
                     break
         keywords_mentioned = list(dict.fromkeys(keywords_mentioned))
-        # additionally, "double" "triple" "quadruple" also count as numbers, in addition to text numbers (e.g. "three")
+
+        # Now have the bot pick out numbers (in order)
+        # additionally, "double", "triple", "quadruple", "half", "an" and "a" also count as numbers, in addition to text numbers (e.g. "three")
         text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
         a_an_detected = False
-        for match in filtered_query.lower().split():
+
+        # Combined regex and word match pass
+        tokens = filtered_query.lower().split()
+        for token in tokens:
+            # Check if it's a digit-based number (e.g. 600, 20.5)
+            if re.fullmatch(r"\d+(\.\d+)?", token):
+                num_mentioned.append(str(float(token)))
+                continue
+
+            # Check if it's a word-based number (e.g. 'three', 'double', 'a')
             try:
-                num = w2n.word_to_num(match)
-                if str(float(num)) not in num_mentioned:
-                    num_mentioned.append(str(float(num)))
+                num = w2n.word_to_num(token)
+                num_mentioned.append(str(float(num)))
                 continue
             except ValueError:
-                pass
+                pass  # not a word2num-recognized word
+
+            # Check if it's in our custom list (a, an, half, double, etc.)
             for t in text_nums:
-                p1 = self.__nlp(match)
+                p1 = self.__nlp(token)
                 p2 = self.__nlp(t)
                 if p1[0].lemma_ == p2[0].lemma_:
                     if t == "double":
@@ -664,8 +671,10 @@ class DLM:
                     elif t == "quadruple":
                         num_mentioned.append(float(4).__str__())
 
-        if a_an_detected and len(num_mentioned) > 1:
+        # Remove "1.0" if 'a'/'an' was used in an invalid context (like not following "=")
+        if a_an_detected and (num_mentioned.count("1.0") > 1 or len(num_mentioned) > 1):
             num_mentioned.remove("1.0")
+
         if ('=' in operands_mentioned) and (len(num_mentioned) < 2):
             operands_mentioned.clear()
             operands_mentioned.append('=')
@@ -690,7 +699,7 @@ class DLM:
             self.__loadingAnimation(
                 f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
             self.__loadingAnimation(
-                f"4.) I see that I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
+                f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
                 0.2)
             self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
             # Finally compute it and then give the response (if there is any)
