@@ -21,7 +21,6 @@ class DLM:
     __tone = None  # sentimental tone of user query
     __trainingPwd = "371507"  # password to enter training mode
     __mode = None  # either "training", "commercial", or "experimental"
-    __singlePassthrough = True  # used to prevent multiple iterations of training prompt
     __unsure_while_thinking = False  # if uncertain while thinking, then it will let the user know that
     __nlp_similarity_value = None  # saves the similarity value by doing SpaCy calculation (for debugging)
     __special_stripped_query = None  # saves query without any special words for reduced interference while vector calculating
@@ -259,11 +258,15 @@ class DLM:
         "quarter": 0.25, "quarters": 0.25
     }
 
-    def __init__(self, db_filename):  # initializes SQL database & SpaCy NLP
+    def __init__(self, mode, db_filename="dlm_database.db"):  # initializes SQL database & SpaCy NLP
         """
         Initialize the Dynamic-Learning Model (DLM) chatbot.
 
         Parameters:
+            mode (str): The access mode. Options:
+                        't' for Training mode,
+                        'c' for Commercial mode,
+                        'e' for Experimental mode.
             db_filename (str): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
@@ -271,12 +274,75 @@ class DLM:
             - Loads the SpaCy NLP model ('en_core_web_lg').
             - Loads Better-Profanity for profane phrase sensing.
             - Connects to the specified SQLite database file.
+            - Set appropriate mode value
+            - Verify login information based on mode
             - Ensures the required table structure exists (creates if missing).
         """
         self.__nlp = spacy.load("en_core_web_lg")
         profanity.load_censor_words()
         self.__filename = db_filename
+        self.__mode = mode
+        self.__login_verification(self.__mode)
         self.__create_table_if_missing()
+
+    def __login_verification(self, mode):  # no return, void
+        """
+        Verify and initialize the selected access mode (Training, Commercial, or Experimental).
+
+        Parameters:
+            mode (str): The access mode. Options are:
+                        't' - Training mode (requires password and shows training guidelines)
+                        'c' - Commercial mode (no training features, read-only usage)
+                        'e' - Experimental mode (enables reasoning features, no DB writes)
+
+        Behavior:
+            - If mode is 't', prompts for a password and displays mandatory training instructions.
+            - If mode is 'c', enters Commercial mode without training privileges.
+            - If mode is 'e', proceeds with Experimental mode with reasoning capabilities.
+        """
+        if mode.lower() == "t":
+            password = input("Enter the password to enter Training Mode: ")
+            while password != self.__trainingPwd:
+                password = input(
+                    "Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
+                if password.lower() == "stop":
+                    self.__mode = "commercial"
+                    print("\n")
+                    self.__loadingAnimation("Logging in as Commercial User", 0.6)
+                    print("\n")
+                    break
+            if password == self.__trainingPwd:
+                # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
+                print(
+                    f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
+                print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
+                print(
+                    "*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
+                print(
+                    "*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
+                print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
+                print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
+                print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
+                print(
+                    "*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
+
+                confirmation = input(
+                    "Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
+                while confirmation.lower() != "y":  # trainers must understand the instructions above
+                    confirmation = input(
+                        "You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
+                self.__mode = "training"
+                print("\n")
+                self.__loadingAnimation("Logging in as Trainer", 0.6)
+                print("\n")
+        elif mode.lower() == "c":
+            self.__mode = "commercial"
+            self.__loadingAnimation("Logging in as Commercial User", 0.6)
+            print("Ask Non-Computational Queries (switch to experimental for computational queries)")
+        else:
+            self.__mode = "experimental"
+            self.__loadingAnimation("Logging in as Experimental", 0.6)
+            print("Ask Computational Problems (Arithmetics or Conversions)")
 
     def __create_table_if_missing(self):  # no return, void
         """
@@ -1188,75 +1254,10 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def __login_verification(self, mode):  # no return, void
-        """
-        Verify and initialize the selected access mode (Training, Commercial, or Experimental).
-
-        Parameters:
-            mode (str): The access mode. Options are:
-                        't' - Training mode (requires password and shows training guidelines)
-                        'c' - Commercial mode (no training features, read-only usage)
-                        'e' - Experimental mode (enables reasoning features, no DB writes)
-
-        Behavior:
-            - If mode is 't', prompts for a password and displays mandatory training instructions.
-            - If mode is 'c', enters Commercial mode without training privileges.
-            - If mode is 'e', proceeds with Experimental mode with reasoning capabilities.
-        """
-        if mode.lower() == "t":
-            password = input("Enter the password to enter Training Mode: ")
-            while password != self.__trainingPwd:
-                password = input(
-                    "Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
-                if password.lower() == "stop":
-                    self.__mode = "commercial"
-                    print("\n")
-                    self.__loadingAnimation("Logging in as Commercial User", 0.6)
-                    print("\n")
-                    break
-            if password == self.__trainingPwd:
-                # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
-                print(
-                    f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
-                print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
-                print(
-                    "*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
-                print(
-                    "*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
-                print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
-                print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
-                print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
-                print(
-                    "*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
-
-                confirmation = input(
-                    "Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
-                while confirmation.lower() != "y":  # trainers must understand the instructions above
-                    confirmation = input(
-                        "You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
-                self.__mode = "training"
-                print("\n")
-                self.__loadingAnimation("Logging in as Trainer", 0.6)
-                print("\n")
-        elif mode.lower() == "c":
-            self.__mode = "commercial"
-            self.__loadingAnimation("Logging in as Commercial User", 0.6)
-            print("Ask Non-Computational Queries (switch to experimental for computational queries)")
-        else:
-            self.__mode = "experimental"
-            self.__loadingAnimation("Logging in as Experimental", 0.6)
-            print("Ask Computational Problems (Arithmetics or Conversions)")
-
-    def ask(self, mode):  # no return, void
+    def ask(self, query):  # no return, void
         """
         Handle a full user interaction loop with the DLM bot.
         NOTICE: To make the bot run continuously, implement a loop in your program
-
-        Parameters:
-            mode (str): The access mode. Options:
-                        't' for Training mode,
-                        'c' for Commercial mode,
-                        'e' for Experimental mode.
 
         Behavior:
             - Prompts the user for input.
@@ -1266,18 +1267,7 @@ class DLM:
             - If in training mode and answer is incorrect or not found, prompts user to teach the bot.
             - In experimental mode, performs reasoning or arithmetic without using database.
         """
-        if self.__singlePassthrough:
-            self.__login_verification(mode)
-            self.__singlePassthrough = False
-
-        if self.__mode == "training":
-            print("\nTRAINING MODE")
-        elif self.__mode == "commercial":
-            print("\n\nCOMMERCIAL MODE")
-        else:
-            print("\n\nEXPERIMENTAL MODE")  # for experimental, there are no data saving in DB
-        self.__query = input("DLM Bot here, ask away: ")
-
+        self.__query = query
         while self.__query is None or self.__query == "":
             self.__query = input("Empty input is unacceptable. Please enter something: ")
 
