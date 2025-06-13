@@ -264,9 +264,9 @@ class DLM:
 
         Parameters:
             mode (str): The access mode. Options:
-                        't' for Training mode,
-                        'c' for Commercial mode,
-                        'e' for Experimental mode.
+                        't' for Training mode (to train the bot with queries),
+                        'c' for Commercial mode (to use it in your deployment/production program),
+                        'e' for Experimental mode (for arithmetic or conversion queries).
             db_filename (str): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
@@ -308,8 +308,6 @@ class DLM:
                 if password.lower() == "stop":
                     self.__mode = "commercial"
                     print("\n")
-                    self.__loadingAnimation("Logging in as Commercial User", 0.6)
-                    print("\n")
                     break
             if password == self.__trainingPwd:
                 # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
@@ -337,12 +335,8 @@ class DLM:
                 print("\n")
         elif mode.lower() == "c":
             self.__mode = "commercial"
-            self.__loadingAnimation("Logging in as Commercial User", 0.6)
-            print("Ask Non-Computational Queries (switch to experimental for computational queries)")
         else:
             self.__mode = "experimental"
-            self.__loadingAnimation("Logging in as Experimental", 0.6)
-            print("Ask Computational Problems (Arithmetics or Conversions)")
 
     def __create_table_if_missing(self):  # no return, void
         """
