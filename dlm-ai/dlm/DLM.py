@@ -532,12 +532,13 @@ class DLM:
         else:
             self.__tone = ""
 
-    def __perform_advanced_CoT(self, filtered_query):  # no return, void
+    def __perform_advanced_CoT(self, filtered_query, display_thought):  # no return, void
         """
         Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
 
         Parameters:
             filtered_query (str): The cleaned user input, expected to be a math- or logic-based question.
+            display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer
 
         Behavior:
             - Simulates step-by-step reasoning to solve arithmetic word problems without relying on memorized answers.
@@ -545,14 +546,9 @@ class DLM:
             - Detects arithmetic operations via lexical and semantic matching with predefined keyword sets.
             - Handles both numeric digits and text-based numbers (e.g., "three", "double").
             - Supports simple arithmetic expressions and unit conversions (e.g., inches to cm).
-            - Prints the interpreted steps, logical inferences, and the final computed result with contextual explanations.
+            - Prints the interpreted steps, logical inferences (if display_thought is True), and the final computed result with contextual explanations.
             - Displays fallback messages if the query is incomplete or too ambiguous to solve.
         """
-        print(
-            f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
-        self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
-        self.__loadingAnimation(
-            f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query.title()}\" now", 0.8)
         persons_mentioned = []
         items_mentioned = []
         keywords_mentioned = []
@@ -567,6 +563,13 @@ class DLM:
         ]
         filtered_query = filtered_query.title()
         doc = self.__nlp(filtered_query)
+
+        if display_thought:
+            print(
+                f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
+            self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
+            self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now",
+                                    0.8)
 
         # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
         for ent in doc.ents:
@@ -749,21 +752,23 @@ class DLM:
             print(
                 f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else:  # else, the bot needs to explain what it has tokenized
-            self.__loadingAnimation(
-                f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
-                f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
-            self.__loadingAnimation(
-                f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
-                f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
-                0.2)
-            self.__loadingAnimation(
-                f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
-            self.__loadingAnimation(
-                f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
-                0.2)
-            self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
-            # Finally compute it and then give the response (if there is any)
+            if display_thought:
+                self.__loadingAnimation(
+                    f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
+                    f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
+                self.__loadingAnimation(
+                    f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
+                    f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
+                    0.2)
+                self.__loadingAnimation(
+                    f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with",
+                    0.2)
+                self.__loadingAnimation(
+                    f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
+                    0.2)
+                self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
 
+            # Finally compute it and then give the response (if there is any)
             # move "originally" numbers to the front
             indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had",
                           "savings", "saving", "of"}
@@ -867,9 +872,10 @@ class DLM:
                     # 4) Compute only if we have both source_key and target_key
                     if source_key and target_key:
                         result = (num0 * self.__units[source_key]) / self.__units[target_key]
-                        self.__loadingAnimation(
-                            f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer",
-                            0.2)
+                        if display_thought:
+                            self.__loadingAnimation(
+                                f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer",
+                                0.2)
                         expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
                         print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
                     else:
@@ -907,8 +913,8 @@ class DLM:
                 print(
                     f"{'\033[34m'}That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?{'\033[0m'}")
 
-    def __generate_thought(self, filtered_query, best_match_question, best_match_answer,
-                           highest_similarity):  # no return, void
+    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity,
+                           display_thought):  # no return, void
         """
         Simulate a Chain-of-Thought (CoT) reasoning process by printing the bot's internal analysis.
 
@@ -917,6 +923,7 @@ class DLM:
             best_match_question (str): The closest matching question found in the knowledge base.
             best_match_answer (str): The corresponding answer to the matched question.
             highest_similarity (float): The calculated string similarity score (0 to 1) for the match.
+            display_thought (bool): "True" if the bot is allowed to print its thought or else "False"
 
         Behavior:
             - Outputs step-by-step reasoning in a conversational format (e.g., interpreting the question's structure and tone).
@@ -925,63 +932,74 @@ class DLM:
             - Displays confidence based on similarity metrics and sets flags for uncertain answers.
             - Uses colorized terminal output and a loading animation to simulate reflective thought.
         """
-        print("\nThought Process (Yellow):")
-        if filtered_query is None or filtered_query == "":
-            print(
-                f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
-        else:
-            sentiment_tone = self.__tone.split()
-
-            if self.__tone != "":
+        if display_thought:
+            print("\nThought Process (Yellow):")
+            if filtered_query is None or filtered_query == "":
                 print(
-                    f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
-            if self.__mode == "experimental":
-                self.__perform_advanced_CoT(filtered_query)
+                    f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
             else:
-                interrogative_start = filtered_query.split()[0]
-                identifier = filtered_query
-                special_start = ["definition", "explanation", "description", "comparison", "calculation", "translation",
-                                 "meaning"]  # special word in different form
-                for word in special_start:
-                    identifier = identifier.replace(word, "")
-                # collapse any extra spaces
-                identifier = " ".join(identifier.split())
-                identifier = identifier.split()
+                sentiment_tone = self.__tone.split()
 
-                if " ".join(identifier) == "":
+                if self.__tone != "":
                     print(
-                        f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+                        f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
+                if self.__mode == "experimental":
+                    self.__perform_advanced_CoT(filtered_query, display_thought)
                 else:
-                    print(
-                        f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
-                self.__loadingAnimation("Let me think about this carefully", 0.8)
+                    interrogative_start = filtered_query.split()[0]
+                    identifier = filtered_query
+                    special_start = ["definition", "explanation", "description", "comparison", "calculation",
+                                     "translation",
+                                     "meaning"]  # special word in different form
+                    for word in special_start:
+                        identifier = identifier.replace(word, "")
+                    # collapse any extra spaces
+                    identifier = " ".join(identifier.split())
+                    identifier = identifier.split()
 
-                for s in special_start:
-                    for u in filtered_query.split():
-                        s_input = self.__nlp(s)
-                        u_input = self.__nlp(u)
-                        if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (
-                                s_input.similarity(u_input) > 0.60):
+                    if " ".join(identifier) == "":
+                        print(
+                            f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+                    else:
+                        print(
+                            f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
+                    self.__loadingAnimation("Let me think about this carefully", 0.8)
+
+                    for s in special_start:
+                        for u in filtered_query.split():
+                            s_input = self.__nlp(s)
+                            u_input = self.__nlp(u)
+                            if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (
+                                    s_input.similarity(u_input) > 0.60):
+                                print(
+                                    f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier).title()}\".{'\033[0m'}")
+
+                    self.__semantic_similarity(self.__special_stripped_query, best_match_question)
+                    spacy_proceed = self.__nlp_similarity_value is not None
+                    if (best_match_answer is None) or (
+                            highest_similarity < 0.65 and (spacy_proceed and self.__nlp_similarity_value < 0.85)):
+                        print(
+                            f"{'\033[33m'}The closest match is only {int(highest_similarity * 100)}% similar when I used sequence matching.{'\033[0m'}")
+                        if spacy_proceed:
                             print(
-                                f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier).title()}\".{'\033[0m'}")
-
-                self.__semantic_similarity(self.__special_stripped_query, best_match_question)
-                spacy_proceed = self.__nlp_similarity_value is not None
-                if (best_match_answer is None) or (highest_similarity < 0.65 and (spacy_proceed and self.__nlp_similarity_value < 0.85)):
-                    print(f"{'\033[33m'}The closest match is only {int(highest_similarity * 100)}% similar when I used sequence matching.{'\033[0m'}")
-                    if spacy_proceed:
-                        print(f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
-                    print(f"{self.__loadingAnimation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let the user know that.{'\033[0m'}")
-                    self.__unsure_while_thinking = True
-                else:
-                    self.__unsure_while_thinking = False
-                    DB_identifier = self.__get_specific_question(best_match_answer)
-                    print(f"{'\033[33m'}Yes! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
-                    print(f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
-                    if spacy_proceed:
-                        print(f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
-                    self.__loadingAnimation("Let me recall that answer", 0.8)
-        print("\n")
+                                f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
+                        print(
+                            f"{self.__loadingAnimation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let the user know that.{'\033[0m'}")
+                        self.__unsure_while_thinking = True
+                    else:
+                        self.__unsure_while_thinking = False
+                        DB_identifier = self.__get_specific_question(best_match_answer)
+                        print(
+                            f"{'\033[33m'}Yes! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
+                        print(
+                            f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
+                        if spacy_proceed:
+                            print(
+                                f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
+                        self.__loadingAnimation("Let me recall that answer", 0.8)
+            print("\n")
+        elif self.__mode == "experimental":
+            self.__perform_advanced_CoT(filtered_query, display_thought)
 
     def __generate_response(self, best_match_answer, best_match_question):  # no return, void
         """
@@ -1248,10 +1266,15 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def ask(self, query):  # no return, void
+    def ask(self, query, display_thought):  # no return, void
         """
         Handle a full user interaction loop with the DLM bot.
-        NOTICE: To make the bot run continuously, implement a loop in your program
+
+        NOTICE: To make the bot run continuously, implement a loop in your program.
+
+        Parameters:
+            query (str): Question the bot would answer, compute, or learn
+            display_thought (bool): "True" for allowing bot to print its thought and CoT or "False"
 
         Behavior:
             - Prompts the user for input.
@@ -1312,7 +1335,8 @@ class DLM:
                 best_match_answer = stored_answer
 
         # "Chain of Thought" (CoT) Feature
-        self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity)
+        self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
+                                display_thought)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if self.__mode != "experimental":
