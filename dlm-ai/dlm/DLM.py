@@ -491,7 +491,9 @@ class DLM:
                 float(word)  # Try to treat as number
                 unique_words.append(word)  # Keep numeric strings (duplicates allowed)
             except ValueError:
-                if word not in seen:
+                if any(word in keywords for keywords in self.__computation_identifiers.values()):
+                    unique_words.append(word)  # Keep identifier words (duplicates allowed)
+                elif word not in seen:
                     seen.add(word)
                     unique_words.append(word)
 
@@ -606,6 +608,7 @@ class DLM:
                 continue
             if fq_l in {"+", "-", "*", "/"}:
                 operands_mentioned.append(fq_l)
+                keywords_mentioned.append(fq_l)
                 continue  # move on to the next token
             for operand, keywords in self.__computation_identifiers.items():
                 for kw in keywords:
@@ -744,7 +747,6 @@ class DLM:
         else:
             if '=' in operands_mentioned:
                 operands_mentioned = [op for op in operands_mentioned if op != '=']
-        operands_mentioned = list(dict.fromkeys(operands_mentioned))
 
         print("\n")
         if any(not lst for lst in (num_mentioned, operands_mentioned)) or (
