@@ -14,8 +14,6 @@ Key capabilities include:
 
 Whether you're building a student support bot, a domain-specific assistant, or an adaptive Q&A system, DLM offers a flexible foundation to power your intelligent applications
 
-* This model uses SpaCy, SQLite, & NLTK for many of its functions
-
 NOTICE: 
 * This is a public package. To install it, run: 
 ```bash
