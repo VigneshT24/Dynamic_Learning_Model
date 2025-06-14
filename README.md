@@ -16,7 +16,9 @@ Whether you're building a student support bot, a domain-specific assistant, or a
 
 * This model uses SpaCy, SQLite, & NLTK for many of its functions
 
-NOTICE: This is a public package, to install it, run: **pip install dynamic-learning-model**
+NOTICE: 
+* This is a public package, to install it, run: **pip install dynamic-learning-model**
+* The training password can be located by the value of the variable "__trainingPwd"
 
 
 ![image](https://github.com/user-attachments/assets/340dc69a-8374-45df-ac1e-82431c5111f2)
