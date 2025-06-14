@@ -2,7 +2,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=SQLite&logoColor=white)
 
 # Dynamic Learning Model
-**ABOUT**
+**ABOUT**:
 
 The Dynamic Learning Model (DLM) is a hybrid AI system designed to learn, adapt, and intelligently respond to user queries. It combines natural language understanding with structured reasoning, continually improving as it is trained.
 
@@ -16,7 +16,7 @@ Key capabilities include:
 
 Whether you're building a student support bot, a domain-specific assistant, or a computation system, DLM offers a flexible foundation to power your intelligent applications
 
-**REQUIRED PARAMETERS**
+**REQUIRED PARAMETERS**:
 * The constructor requires passing in two parameters:
   - Bot Mode: 't' = training, 'c' = commercial, 'e' = experimental
   - Empty SQL Database for training the bot with queries
@@ -24,7 +24,7 @@ Whether you're building a student support bot, a domain-specific assistant, or a
   - Query: "What is the definition of FAFSA" (as an example)
   - Display Thought: "True" to allow the bot's Chain of Thought to be displayed, or else "False"
 
-**GET STARTED**
+**GET STARTED**:
 * To install, run: 
 ```bash
 pip install dynamic-learning-model
