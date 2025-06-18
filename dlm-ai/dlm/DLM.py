@@ -656,7 +656,10 @@ class DLM:
                 self.__loadingAnimation(f"* The user has mentioned that the height of the {obj_name} object is {height_value}", 0.4)
             else:
                 self.__loadingAnimation(f"* The {object_intel[1]} object has no height associated with it, so moving on", 0.4)
-            self.__loadingAnimation(f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}", 0.4)
+            if len(other_values) > 0:
+                self.__loadingAnimation(f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}", 0.4)
+            else:
+                self.__loadingAnimation(f"* No additional numerical values associated with the dimensions of the {obj_name} were given",0.4)
 
         # Now iterate through the geometric identifier list, find the correct object, and then find its formula, then plug compute
         formula = self.__geometric_calculation_identifiers[obj_name]["formula"]
@@ -684,7 +687,10 @@ class DLM:
             return result
 
         except Exception as e:
-            self.__loadingAnimation(f"Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values", 0.4)
+            if display_thought:
+                print(f"{'\033[33m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
+            else:
+                print(f"{'\033[34m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
             return None
 
 
@@ -759,11 +765,16 @@ class DLM:
         geometric_calc = any(difflib.get_close_matches(word, self.__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70) for word in words)
         is_geometric_query = False
 
-        if any(difflib.get_close_matches(word, ["area", "volume", "radius"], n=1, cutoff=0.70) for word in words) and geometric_calc:
+        geo_types = set() # currently supported types of geometric calculations
+
+        for t in self.__geometric_calculation_identifiers:
+            shape = self.__geometric_calculation_identifiers[t]["keywords"]
+            geo_types.add(shape[0])
+        if any(difflib.get_close_matches(word, geo_types, n=1, cutoff=0.70) for word in words) and geometric_calc:
             geometric_ans = self.__geometric_calculation(filtered_query, display_thought)
             if geometric_ans is not None:
                 is_geometric_query = True
-        else:# Then have it find all operand indicating keywords
+        else: # Not geometric, so have the bot find all operand indicating keywords
             found_operand = False
             for fq in filtered_query.split():
                 fq_l = fq.lower()
@@ -913,9 +924,10 @@ class DLM:
                     operands_mentioned = [op for op in operands_mentioned if op != '=']
 
         # verify and possibly print thoughts
-        print("\n")
-        if (not is_geometric_query) and any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2):  # don't compute if parts are missing
-            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+        if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
+            print(f"{self.__loadingAnimation('Hmm', 0.8) or '' if display_thought else ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+            print(f"\033[34mIf you are asking a geometric query, try including geometric identifiers like \"{'\", \"'.join(geo_types)}\" in your query.\033[0m")
+            print(f"\033[34mCurrently, I can only compute those identifiers aforementioned, but more geometric features are coming soon!\033[0m")
         else:  # else, the bot needs to explain what it has tokenized
             if display_thought:
                 self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
@@ -924,7 +936,7 @@ class DLM:
                     f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
                     0.2)
                 if is_geometric_query:
-                    self.__loadingAnimation(f"3.) This seems to be a formula-based computation query, where I need to determine the {""}.", 0.2)
+                    self.__loadingAnimation(f"3.) This is a geometric problem and I have already computed the answer", 0.2)
                 else:
                     self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
                     self.__loadingAnimation(f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.2)
@@ -961,8 +973,11 @@ class DLM:
                     num_mentioned.remove(str(float(temp)))
                 num_mentioned.insert(0, str(float(temp)))
 
+            # geometric problem
+            if is_geometric_query:
+                print(f"{'\033[34m'}Geometric Answer: {geometric_ans}{'\033[0m'}")
             # conversion problem
-            if len(num_mentioned) == 1 and len(operands_mentioned) == 1:
+            elif len(num_mentioned) == 1 and len(operands_mentioned) == 1:
                 try:
                     tokens = filtered_query.lower().split()
                     num0 = float(num_mentioned[0])
