@@ -7,6 +7,7 @@ import time
 import sqlite3
 import re
 import nltk
+import math
 from better_profanity import profanity
 from nltk.corpus import names
 from word2number import w2n
@@ -211,6 +212,40 @@ class DLM:
             "dime", "dimes",
             "quarter", "quarters"
         ]
+    }
+
+    # to solve geometric problems (advanced CoT)
+    __geometric_calculation_identifiers = {
+        "triangle": {
+            "keywords": ["area", "triangle"], # keyword that will be mentioned while in CoT
+            "params": ["base", "height"], # helps with formula
+            "formula": lambda d: 0.5 * d["base"] * d["height"] # formula to solve geometric problem
+        },
+        "rectangle": {
+            "keywords": ["area", "rectangle"],
+            "params": ["length", "width"],
+            "formula": lambda d: d["length"] * d["width"]
+        },
+        "parallelogram": {
+            "keywords": ["area", "parallelogram"],
+            "params": ["base", "height"],
+            "formula": lambda d: d["length"] * d["width"]
+        },
+        "square": {
+            "keywords": ["area", "square"],
+            "params": ["side"],
+            "formula": lambda d: math.pow(d["side"], 2)
+        },
+        "trapezoid": {
+            "keywords": ["area", "trapezoid"],
+            "params": ["height"],
+            "formula": lambda d: 0.5 * (d["other"][0] + d["other"][1]) * d["height"]
+        },
+        "circle": {
+            "keywords": ["area", "circle"],
+            "params": ["radius"],
+            "formula": lambda d: (math.pow(d["radius"], 2)) * math.pi
+        }
     }
 
     # for SI conversion and CoT
@@ -534,6 +569,77 @@ class DLM:
         else:
             self.__tone = ""
 
+    def __geometric_calculation(self, filtered_query, display_thought):
+        """
+        Perform formula-related math and geometric problems that will be called inside perform_advanced_CoT
+
+        Parameters:
+            filtered_query (str): user query that has been filtered to have mostly computational details
+            display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer
+
+        Returns:
+            float: The result after computing the formula calculation
+
+        Behavior:
+            - Search through query to find specific keywords like 'area' or 'volume'
+            - Then, search to find shape or object to perform math on like 'triangle' or 'square'
+            - Find numbers associated with object details and store in appropriate list
+            - Finally, find appropriate formula with identifiers and plug in and return answer
+
+        """
+        self.__loadingAnimation("All I know is that this is a formula related problem. I don't know how to compute it yet", 0.8)
+
+        height_value = None
+        height_value_index = None
+        other_values = []
+        tokens = filtered_query.split()
+        lower_tokens = [t.lower() for t in tokens]
+
+        # set height value number (if exists) to height_value and also its corresponding index
+        for idx, token in enumerate(lower_tokens):
+            is_similar = difflib.get_close_matches(token, ["height"], n=1, cutoff=0.7)
+            if is_similar and is_similar[0] == "height":
+                # try token before
+                if idx > 0:
+                    candidate = lower_tokens[idx - 1]
+                    try:
+                        height_value = w2n.word_to_num(candidate)
+                        height_value_index = idx - 1
+                    except ValueError:
+                        if candidate.replace('.', '', 1).isdigit():
+                            height_value = float(candidate)
+                            height_value_index = idx - 1
+                            break
+                        pass
+
+                # try token after
+                if idx < len(tokens) - 1:
+                    candidate = lower_tokens[idx + 1]
+                    try:
+                        height_value = w2n.word_to_num(candidate)
+                        height_value_index = idx + 1
+                    except ValueError:
+                        if candidate.replace('.', '', 1).isdigit():
+                            height_value = float(candidate)
+                            height_value_index = idx + 1
+                            break
+                        pass
+
+        # append all other numbers to "other_value" list
+        for i, token in enumerate(tokens):
+            if i == height_value_index:
+                continue  # skip the height value itself
+            try:
+                num = w2n.word_to_num(token)
+                other_values.append(num)
+            except ValueError:
+                if token.replace('.', '', 1).isdigit():
+                    other_values.append(float(token))
+
+        if display_thought:
+            self.__loadingAnimation(f"The user has mentioned that the height of the object is {height_value} at index {height_value_index}", 0.4)
+            self.__loadingAnimation(f"Other numbers that are not related to the object's height is {' and '.join(str(v) for v in other_values)}", 0.4)
+
     def __perform_advanced_CoT(self, filtered_query, display_thought):  # no return, void
         """
         Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
@@ -570,8 +676,7 @@ class DLM:
             print(
                 f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
             self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
-            self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now",
-                                    0.8)
+            self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now", 0.8)
 
         # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
         for ent in doc.ents:
@@ -599,176 +704,194 @@ class DLM:
         tokens_lower = filtered_query.lower().split()
         last_two = set(tokens_lower[-2:])  # only the final 2 words from filtered input
 
-        # Then have it find all operand indicating keywords
-        found_operand = False
-        for fq in filtered_query.split():
-            fq_l = fq.lower()
-            # If this word is one of the ending phrases and sits among the last five, skip it
-            if fq_l in arithmetic_ending_phrases and fq_l in last_two:
-                continue
-            if fq_l in {"+", "-", "*", "/"}:
-                operands_mentioned.append(fq_l)
-                keywords_mentioned.append(fq_l)
-                continue  # move on to the next token
-            for operand, keywords in self.__computation_identifiers.items():
-                for kw in keywords:
-                    p1 = self.__nlp(kw)
-                    p2 = self.__nlp(fq_l)
-                    word_num_surrounded = re.search(rf'\d+\s*{fq.lower()}\s*\d+', filtered_query.lower())
 
-                    # Direct match or lemma match
-                    if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
-                        keywords_mentioned.append(kw.title())
-                        if kw.lower() == "average":
-                            operands_mentioned.append("+")
-                        elif kw.lower() == "out of":
-                            if word_num_surrounded:
-                                operands_mentioned.append(operand)
-                                found_operand = True
-                                break  # only break if 'out of' condition is satisfied
-                            continue  # skip adding 'out of' if not surrounded by numbers
-                        else:
-                            operands_mentioned.append(operand)
-                            found_operand = True
-                            break
 
-                    # Vector + string similarity
-                    if p1.vector_norm != 0 and p2.vector_norm != 0 and (
-                            p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
-                        keywords_mentioned.append(kw.title())
-                        if kw.lower() == "average":
-                            operands_mentioned.append("+")
-                        elif kw.lower() == "out of":
-                            if word_num_surrounded:
-                                operands_mentioned.append(operand)
-                                found_operand = True
-                                break
-                            continue
-                        else:
-                            operands_mentioned.append(operand)
-                            found_operand = True
-                            break
 
-                    # Fallback: high string similarity
-                    elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
-                        keywords_mentioned.append(kw.title())
-                        if kw.lower() == "average":
-                            operands_mentioned.append("+")
-                        elif kw.lower() == "out of":
-                            if word_num_surrounded:
-                                operands_mentioned.append(operand)
-                                found_operand = True
-                                break
-                            continue
-                        else:
-                            operands_mentioned.append(operand)
-                            found_operand = True
-                            break
 
-                if found_operand:
-                    found_operand = False
-                    break
 
-        # If no operands were found in the main pass, check ending phrases as a last resort
-        if not operands_mentioned:
+        # First see if the problem is a formula computation
+        words = filtered_query.lower().split()
+        formula_ans = None
+        # checks if the query contains shapes or object to perform possibly formula calculation
+        formula_calc = any(difflib.get_close_matches(word, self.__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70) for word in words)
+        is_formula_query = False
+
+        if any(difflib.get_close_matches(word, ["area", "volume", "radius"], n=1, cutoff=0.70) for word in words) and formula_calc:
+            formula_ans = self.__geometric_calculation(filtered_query, display_thought)
+            if formula_ans is not None:
+                is_formula_query = True
+
+
+
+
+
+
+        else:# Then have it find all operand indicating keywords
+            found_operand = False
             for fq in filtered_query.split():
-                p_fq = self.__nlp(fq)
-
-                # Replace exact matching with a spaCy similarity check against ending_phrases
-                matched_ep = None
-                for ep in arithmetic_ending_phrases:
-                    p_ep = self.__nlp(ep)
-                    if p_ep.vector_norm != 0 and p_fq.vector_norm != 0 and p_ep.similarity(p_fq) > 0.50:
-                        matched_ep = ep
-                        break
-
-                if not matched_ep:
+                fq_l = fq.lower()
+                # If this word is one of the ending phrases and sits among the last five, skip it
+                if fq_l in arithmetic_ending_phrases and fq_l in last_two:
                     continue
-
-                # Now matched_ep roughly corresponds to an ending phrase; find its operand via spaCy
+                if fq_l in {"+", "-", "*", "/"}:
+                    operands_mentioned.append(fq_l)
+                    keywords_mentioned.append(fq_l)
+                    continue  # move on to the next token
                 for operand, keywords in self.__computation_identifiers.items():
                     for kw in keywords:
-                        p_kw = self.__nlp(kw)
-                        if p_kw.vector_norm != 0 and p_fq.vector_norm != 0 and p_kw.similarity(p_fq) > 0.70:
+                        p1 = self.__nlp(kw)
+                        p2 = self.__nlp(fq_l)
+                        word_num_surrounded = re.search(rf'\d+\s*{fq.lower()}\s*\d+', filtered_query.lower())
+
+                        # Direct match or lemma match
+                        if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
                             keywords_mentioned.append(kw.title())
-                            operands_mentioned.append(operand)
+                            if kw.lower() == "average":
+                                operands_mentioned.append("+")
+                            elif kw.lower() == "out of":
+                                if word_num_surrounded:
+                                    operands_mentioned.append(operand)
+                                    found_operand = True
+                                    break  # only break if 'out of' condition is satisfied
+                                continue  # skip adding 'out of' if not surrounded by numbers
+                            else:
+                                operands_mentioned.append(operand)
+                                found_operand = True
+                                break
+
+                        # Vector + string similarity
+                        if p1.vector_norm != 0 and p2.vector_norm != 0 and (
+                                p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
+                            keywords_mentioned.append(kw.title())
+                            if kw.lower() == "average":
+                                operands_mentioned.append("+")
+                            elif kw.lower() == "out of":
+                                if word_num_surrounded:
+                                    operands_mentioned.append(operand)
+                                    found_operand = True
+                                    break
+                                continue
+                            else:
+                                operands_mentioned.append(operand)
+                                found_operand = True
+                                break
+
+                        # Fallback: high string similarity
+                        elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
+                            keywords_mentioned.append(kw.title())
+                            if kw.lower() == "average":
+                                operands_mentioned.append("+")
+                            elif kw.lower() == "out of":
+                                if word_num_surrounded:
+                                    operands_mentioned.append(operand)
+                                    found_operand = True
+                                    break
+                                continue
+                            else:
+                                operands_mentioned.append(operand)
+                                found_operand = True
+                                break
+
+                    if found_operand:
+                        found_operand = False
+                        break
+
+            # If no operands were found in the main pass, check ending phrases as a last resort
+            if not operands_mentioned:
+                for fq in filtered_query.split():
+                    p_fq = self.__nlp(fq)
+
+                    # Replace exact matching with a spaCy similarity check against ending_phrases
+                    matched_ep = None
+                    for ep in arithmetic_ending_phrases:
+                        p_ep = self.__nlp(ep)
+                        if p_ep.vector_norm != 0 and p_fq.vector_norm != 0 and p_ep.similarity(p_fq) > 0.50:
+                            matched_ep = ep
+                            break
+
+                    if not matched_ep:
+                        continue
+
+                    # Now matched_ep roughly corresponds to an ending phrase; find its operand via spaCy
+                    for operand, keywords in self.__computation_identifiers.items():
+                        for kw in keywords:
+                            p_kw = self.__nlp(kw)
+                            if p_kw.vector_norm != 0 and p_fq.vector_norm != 0 and p_kw.similarity(p_fq) > 0.70:
+                                keywords_mentioned.append(kw.title())
+                                operands_mentioned.append(operand)
+                                break
+                        if operands_mentioned:
                             break
                     if operands_mentioned:
                         break
-                if operands_mentioned:
-                    break
-        keywords_mentioned = list(dict.fromkeys(keywords_mentioned))
+            keywords_mentioned = list(dict.fromkeys(keywords_mentioned))
 
-        # Now have the bot pick out numbers (in order)
-        # additionally, "double", "triple", "quadruple", "half", "an" and "a" also count as numbers, in addition to text numbers (e.g. "three")
-        text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
-        a_an_detected = False
+            # Now have the bot pick out numbers (in order)
+            # additionally, "double", "triple", "quadruple", "half", "an" and "a" also count as numbers, in addition to text numbers (e.g. "three")
+            text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
+            a_an_detected = False
 
-        # Combined regex and word match pass
-        tokens = filtered_query.lower().split()
-        for token in tokens:
-            # Check if it's a digit-based number (e.g. 600, 20.5)
-            if re.fullmatch(r"\d+(\.\d+)?", token):
-                num_mentioned.append(str(float(token)))
-                continue
+            # Combined regex and word match pass
+            tokens = filtered_query.lower().split()
+            for token in tokens:
+                # Check if it's a digit-based number (e.g. 600, 20.5)
+                if re.fullmatch(r"\d+(\.\d+)?", token):
+                    num_mentioned.append(str(float(token)))
+                    continue
 
-            # Check if it's a word-based number (e.g. 'three', 'double', 'a')
-            try:
-                num = w2n.word_to_num(token)
-                num_mentioned.append(str(float(num)))
-                continue
-            except ValueError:
-                pass  # not a word2num-recognized word
+                # Check if it's a word-based number (e.g. 'three', 'double', 'a')
+                try:
+                    num = w2n.word_to_num(token)
+                    num_mentioned.append(str(float(num)))
+                    continue
+                except ValueError:
+                    pass  # not a word2num-recognized word
 
-            # Check if it's in our custom list (a, an, half, double, etc.)
-            for t in text_nums:
-                p1 = self.__nlp(token)
-                p2 = self.__nlp(t)
-                if p1[0].lemma_ == p2[0].lemma_:
-                    if t == "double":
-                        num_mentioned.append(float(2).__str__())
-                    elif t == "triple":
-                        num_mentioned.append(float(3).__str__())
-                    elif t == "half":
-                        num_mentioned.append(float(0.5).__str__())
-                    elif ("=" in operands_mentioned) and (t == "a" or t == "an"):
-                        a_an_detected = True
-                        num_mentioned.append(float(1.0).__str__())
-                    elif t == "quadruple":
-                        num_mentioned.append(float(4).__str__())
+                # Check if it's in our custom list (a, an, half, double, etc.)
+                for t in text_nums:
+                    p1 = self.__nlp(token)
+                    p2 = self.__nlp(t)
+                    if p1[0].lemma_ == p2[0].lemma_:
+                        if t == "double":
+                            num_mentioned.append(float(2).__str__())
+                        elif t == "triple":
+                            num_mentioned.append(float(3).__str__())
+                        elif t == "half":
+                            num_mentioned.append(float(0.5).__str__())
+                        elif ("=" in operands_mentioned) and (t == "a" or t == "an"):
+                            a_an_detected = True
+                            num_mentioned.append(float(1.0).__str__())
+                        elif t == "quadruple":
+                            num_mentioned.append(float(4).__str__())
 
-        # Remove "1.0" if 'a'/'an' was used in an invalid context (like not following "=")
-        if a_an_detected and (num_mentioned.count("1.0") > 1 or len(num_mentioned) > 1):
-            num_mentioned.remove("1.0")
+            # Remove "1.0" if 'a'/'an' was used in an invalid context (like not following "=")
+            if a_an_detected and (num_mentioned.count("1.0") > 1 or len(num_mentioned) > 1):
+                num_mentioned.remove("1.0")
 
-        if ('=' in operands_mentioned) and (len(num_mentioned) < 2):
-            operands_mentioned.clear()
-            operands_mentioned.append('=')
-        else:
-            if '=' in operands_mentioned:
-                operands_mentioned = [op for op in operands_mentioned if op != '=']
+            if ('=' in operands_mentioned) and (len(num_mentioned) < 2):
+                operands_mentioned.clear()
+                operands_mentioned.append('=')
+            else:
+                if '=' in operands_mentioned:
+                    operands_mentioned = [op for op in operands_mentioned if op != '=']
 
+        # verify and possibly print thoughts
         print("\n")
-        if any(not lst for lst in (num_mentioned, operands_mentioned)) or (
-                '=' not in operands_mentioned and num_mentioned.__len__() < 2):  # don't compute if parts are missing
-            print(
-                f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+        if (not is_formula_query) and any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2):  # don't compute if parts are missing
+            print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else:  # else, the bot needs to explain what it has tokenized
             if display_thought:
-                self.__loadingAnimation(
-                    f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
+                self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
                     f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
-                self.__loadingAnimation(
-                    f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
+                self.__loadingAnimation(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
                     f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
                     0.2)
-                self.__loadingAnimation(
-                    f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with",
-                    0.2)
-                self.__loadingAnimation(
-                    f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
-                    0.2)
-                self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
+                if is_formula_query:
+                    self.__loadingAnimation(f"3.) This seems to be a formula-based computation query, where I need to determine the {""}.", 0.2)
+                else:
+                    self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
+                    self.__loadingAnimation(f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.2)
+                    self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
 
             # Finally compute it and then give the response (if there is any)
             # move "originally" numbers to the front
