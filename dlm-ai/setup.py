@@ -4,7 +4,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='dlm-ai',
+    name='dynamic-learning-model',
     version='1.3',
     author='Vignesh Thondikulam',
     author_email='vignesh.tho2006@gmail.com',
