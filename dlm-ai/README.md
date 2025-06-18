@@ -10,7 +10,7 @@ Key capabilities include:
 
 * FAQ Handling: Learns and responds to frequently asked questions based on the knowledge it has been trained on.
 
-* Chain-of-Thought (CoT) Reasoning: Performs clear, step-by-step logic to solve non-ambiguous arithmetic and unit conversion problems.
+* Chain-of-Thought (CoT) Reasoning: Performs clear, step-by-step logic to solve non-ambiguous arithmetic, geometric, and unit conversion problems.
 
 * Custom Knowledge Integration: DLM is fully extensible. You can initialize it with an empty SQL database and train it with your domain-specific knowledge.
 
