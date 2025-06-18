@@ -229,7 +229,7 @@ class DLM:
         "parallelogram": {
             "keywords": ["area", "parallelogram"],
             "params": ["base", "height"],
-            "formula": lambda d: d["length"] * d["width"]
+            "formula": lambda d: d["base"] * d["height"]
         },
         "square": {
             "keywords": ["area", "square"],
@@ -238,7 +238,7 @@ class DLM:
         },
         "trapezoid": {
             "keywords": ["area", "trapezoid"],
-            "params": ["height"],
+            "params": ["other", "height"],
             "formula": lambda d: 0.5 * (d["other"][0] + d["other"][1]) * d["height"]
         },
         "circle": {
@@ -587,11 +587,12 @@ class DLM:
             - Finally, find appropriate formula with identifiers and plug in and return answer
 
         """
-        self.__loadingAnimation("All I know is that this is a formula related problem. I don't know how to compute it yet", 0.8)
-
         height_value = None
         height_value_index = None
         other_values = []
+        object_intel = []
+        common_endings = ["ular", "ish", "al"] # some people might say "squarish" or "rectangular" etc
+
         tokens = filtered_query.split()
         lower_tokens = [t.lower() for t in tokens]
 
@@ -636,11 +637,56 @@ class DLM:
                 if token.replace('.', '', 1).isdigit():
                     other_values.append(float(token))
 
+        # find the object name and what to compute about the object
+        for token in lower_tokens:
+            for obj in self.__geometric_calculation_identifiers:
+                # remove common endings for better matching
+                for ending in common_endings:
+                    if token.endswith(ending):
+                        token = token[: -len(ending)]  # Remove the ending
+                        break
+                is_similar = difflib.get_close_matches(token, [obj], n=1, cutoff=0.80)
+                if is_similar and is_similar[0] == obj:
+                    object_intel.extend(self.__geometric_calculation_identifiers[obj]["keywords"])
+
+        obj_name = object_intel[1]
         if display_thought:
-            self.__loadingAnimation(f"The user has mentioned that the height of the object is {height_value}", 0.4)
-            self.__loadingAnimation(f"Other numbers that are not related to the object's height is {' and '.join(str(v) for v in other_values)}", 0.4)
+            self.__loadingAnimation(f"It seems that the user wants to compute the {' of a '.join(object_intel)}", 0.5)
+            if height_value is not None:
+                self.__loadingAnimation(f"* The user has mentioned that the height of the {obj_name} object is {height_value}", 0.4)
+            else:
+                self.__loadingAnimation(f"* The {object_intel[1]} object has no height associated with it, so moving on", 0.4)
+            self.__loadingAnimation(f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}", 0.4)
 
         # Now iterate through the geometric identifier list, find the correct object, and then find its formula, then plug compute
+        formula = self.__geometric_calculation_identifiers[obj_name]["formula"]
+        params = self.__geometric_calculation_identifiers[obj_name]["params"]
+
+        formula_inputs = {} # all data gathered to compute geometry
+
+        try:
+            if "height" in params:
+                formula_inputs["height"] = height_value
+
+            value_idx = 0 # count how many values to be added in formula_inputs
+            for param in params:
+                if param == "height":
+                    continue  # already added
+                elif param == "other": # two consecutive numbers to append
+                    formula_inputs["other"] = other_values[value_idx:value_idx + 2]
+                    value_idx += 2
+                else: # only one number to append
+                    formula_inputs[param] = other_values[value_idx]
+                    value_idx += 1
+
+            # Try calculating the result and return
+            result = round(formula(formula_inputs), 4)
+            return result
+
+        except Exception as e:
+            self.__loadingAnimation(f"Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values", 0.4)
+            return None
+
 
     def __perform_advanced_CoT(self, filtered_query, display_thought):  # no return, void
         """
@@ -706,28 +752,17 @@ class DLM:
         tokens_lower = filtered_query.lower().split()
         last_two = set(tokens_lower[-2:])  # only the final 2 words from filtered input
 
-
-
-
-
-
-        # First see if the problem is a formula computation
+        # First see if the problem is a geometric problem
         words = filtered_query.lower().split()
-        formula_ans = None
+        geometric_ans = None
         # checks if the query contains shapes or object to perform possibly formula calculation
-        formula_calc = any(difflib.get_close_matches(word, self.__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70) for word in words)
-        is_formula_query = False
+        geometric_calc = any(difflib.get_close_matches(word, self.__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70) for word in words)
+        is_geometric_query = False
 
-        if any(difflib.get_close_matches(word, ["area", "volume", "radius"], n=1, cutoff=0.70) for word in words) and formula_calc:
-            formula_ans = self.__geometric_calculation(filtered_query, display_thought)
-            if formula_ans is not None:
-                is_formula_query = True
-
-
-
-
-
-
+        if any(difflib.get_close_matches(word, ["area", "volume", "radius"], n=1, cutoff=0.70) for word in words) and geometric_calc:
+            geometric_ans = self.__geometric_calculation(filtered_query, display_thought)
+            if geometric_ans is not None:
+                is_geometric_query = True
         else:# Then have it find all operand indicating keywords
             found_operand = False
             for fq in filtered_query.split():
@@ -879,7 +914,7 @@ class DLM:
 
         # verify and possibly print thoughts
         print("\n")
-        if (not is_formula_query) and any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2):  # don't compute if parts are missing
+        if (not is_geometric_query) and any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2):  # don't compute if parts are missing
             print(f"{self.__loadingAnimation('Hmm', 0.8) or ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
         else:  # else, the bot needs to explain what it has tokenized
             if display_thought:
@@ -888,7 +923,7 @@ class DLM:
                 self.__loadingAnimation(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
                     f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
                     0.2)
-                if is_formula_query:
+                if is_geometric_query:
                     self.__loadingAnimation(f"3.) This seems to be a formula-based computation query, where I need to determine the {""}.", 0.2)
                 else:
                     self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
