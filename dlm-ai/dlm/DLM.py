@@ -637,8 +637,10 @@ class DLM:
                     other_values.append(float(token))
 
         if display_thought:
-            self.__loadingAnimation(f"The user has mentioned that the height of the object is {height_value} at index {height_value_index}", 0.4)
+            self.__loadingAnimation(f"The user has mentioned that the height of the object is {height_value}", 0.4)
             self.__loadingAnimation(f"Other numbers that are not related to the object's height is {' and '.join(str(v) for v in other_values)}", 0.4)
+
+        # Now iterate through the geometric identifier list, find the correct object, and then find its formula, then plug compute
 
     def __perform_advanced_CoT(self, filtered_query, display_thought):  # no return, void
         """
