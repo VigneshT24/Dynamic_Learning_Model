@@ -216,10 +216,11 @@ class DLM:
 
     # to solve geometric problems (advanced CoT)
     __geometric_calculation_identifiers = {
+        # 2D Shapes – Area
         "triangle": {
-            "keywords": ["area", "triangle"], # keyword that will be mentioned while in CoT
-            "params": ["base", "height"], # helps with formula
-            "formula": lambda d: 0.5 * d["base"] * d["height"] # formula to solve geometric problem
+            "keywords": ["area", "triangle"],
+            "params": ["base", "height"],
+            "formula": lambda d: 0.5 * d["base"] * d["height"]
         },
         "rectangle": {
             "keywords": ["area", "rectangle"],
@@ -244,7 +245,49 @@ class DLM:
         "circle": {
             "keywords": ["area", "circle"],
             "params": ["radius"],
-            "formula": lambda d: (math.pow(d["radius"], 2)) * math.pi
+            "formula": lambda d: math.pi * math.pow(d["radius"], 2)
+        },
+        "ellipse": {
+            "keywords": ["area", "ellipse"],
+            "params": ["a", "b"],
+            "formula": lambda d: math.pi * d["a"] * d["b"]
+        },
+        "pentagon": {
+            "keywords": ["area", "pentagon"],
+            "params": ["side"],
+            "formula": lambda d: (1 / 4) * math.sqrt(5 * (5 + 2 * math.sqrt(5))) * math.pow(d["side"], 2)
+        },
+
+        # 3D Shapes – Volume
+        "cube": {
+            "keywords": ["volume", "cube"],
+            "params": ["side"],
+            "formula": lambda d: math.pow(d["side"], 3)
+        },
+        "rectangular prism": {
+            "keywords": ["volume", "rectangular prism"],
+            "params": ["length", "width", "height"],
+            "formula": lambda d: d["length"] * d["width"] * d["height"]
+        },
+        "cylinder": {
+            "keywords": ["volume", "cylinder"],
+            "params": ["radius", "height"],
+            "formula": lambda d: math.pi * math.pow(d["radius"], 2) * d["height"]
+        },
+        "cone": {
+            "keywords": ["volume", "cone"],
+            "params": ["radius", "height"],
+            "formula": lambda d: (1 / 3) * math.pi * math.pow(d["radius"], 2) * d["height"]
+        },
+        "sphere": {
+            "keywords": ["volume", "sphere"],
+            "params": ["radius"],
+            "formula": lambda d: (4 / 3) * math.pi * math.pow(d["radius"], 3)
+        },
+        "pyramid": {
+            "keywords": ["volume", "pyramid"],
+            "params": ["base_area", "height"],
+            "formula": lambda d: (1 / 3) * d["base_area"] * d["height"]
         }
     }
 
@@ -571,14 +614,14 @@ class DLM:
 
     def __geometric_calculation(self, filtered_query, display_thought):
         """
-        Perform formula-related math and geometric problems that will be called inside perform_advanced_CoT
+        Perform geometric problems that will be called inside perform_advanced_CoT
 
         Parameters:
             filtered_query (str): user query that has been filtered to have mostly computational details
             display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer
 
         Returns:
-            float: The result after computing the formula calculation
+            float: The result after computing the geometric calculation
 
         Behavior:
             - Search through query to find specific keywords like 'area' or 'volume'
@@ -638,17 +681,41 @@ class DLM:
                     other_values.append(float(token))
 
         # find the object name and what to compute about the object
-        for token in lower_tokens:
+        bigrams = [" ".join([lower_tokens[i], lower_tokens[i + 1]]) for i in range(len(lower_tokens) - 1)]
+        end_check = False
+
+        # first check bi-grams
+        for phrase in bigrams:
             for obj in self.__geometric_calculation_identifiers:
-                # remove common endings for better matching
                 for ending in common_endings:
-                    if token.endswith(ending):
-                        token = token[: -len(ending)]  # Remove the ending
+                    if phrase[0].endswith(ending):
+                        phrase = phrase[: -len(ending)]
                         break
-                is_similar = difflib.get_close_matches(token, [obj], n=1, cutoff=0.80)
+                is_similar = difflib.get_close_matches(phrase, [obj], n=1, cutoff=0.70)
                 if is_similar and is_similar[0] == obj:
                     object_intel.extend(self.__geometric_calculation_identifiers[obj]["keywords"])
+                    end_check = True
+                    break
+            if end_check:
+                break
 
+        # if no bi-gram match, check single words
+        if not end_check and not lower_tokens.__contains__("prism"):
+            for token in lower_tokens:
+                for obj in self.__geometric_calculation_identifiers:
+                    for ending in common_endings:
+                        if token.endswith(ending):
+                            token = token[: -len(ending)]
+                            break
+                    is_similar = difflib.get_close_matches(token, [obj], n=1, cutoff=0.80)
+                    if is_similar and is_similar[0] == obj:
+                        object_intel.extend(self.__geometric_calculation_identifiers[obj]["keywords"])
+                        end_check = True
+                        break
+                if end_check:
+                    break
+        
+        # if allowed, display the inner thought process
         obj_name = object_intel[1]
         if display_thought:
             self.__loadingAnimation(f"It seems that the user wants to compute the {' of a '.join(object_intel)}", 0.5)
@@ -666,11 +733,12 @@ class DLM:
         params = self.__geometric_calculation_identifiers[obj_name]["params"]
 
         formula_inputs = {} # all data gathered to compute geometry
-
+        
+        # gather and plug in values into the formula
         try:
             if "height" in params:
                 formula_inputs["height"] = height_value
-
+            
             value_idx = 0 # count how many values to be added in formula_inputs
             for param in params:
                 if param == "height":
