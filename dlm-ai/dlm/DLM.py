@@ -12,7 +12,6 @@ from better_profanity import profanity
 from nltk.corpus import names
 from word2number import w2n
 
-
 class DLM:
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
@@ -21,7 +20,7 @@ class DLM:
     __nlp = None  # Spacy NLP analysis
     __tone = None  # sentimental tone of user query
     __trainingPwd = "371507"  # password to enter training mode
-    __mode = None  # either "training", "commercial", or "experimental"
+    __mode = None  # either "learn", "recall", or "compute"
     __unsure_while_thinking = False  # if uncertain while thinking, then it will let the user know that
     __nlp_similarity_value = None  # saves the similarity value by doing SpaCy calculation (for debugging)
     __special_stripped_query = None  # saves query without any special words for reduced interference while vector calculating
@@ -342,9 +341,9 @@ class DLM:
 
         Parameters:
             mode (str): The access mode. Options:
-                        't' for Training mode (to train the bot with queries),
-                        'c' for Commercial mode (to use it in your deployment/production program),
-                        'e' for Experimental mode (for arithmetic or conversion queries).
+                        'learn' for training mode (to train the bot with queries),
+                        'recall' for recalling learned queries (to use it in your deployment/production program),
+                        'compute' for mathematical queries (for arithmetic or conversion queries).
             db_filename (str): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
@@ -365,26 +364,25 @@ class DLM:
 
     def __login_verification(self, mode):  # no return, void
         """
-        Verify and initialize the selected access mode (Training, Commercial, or Experimental).
+        Verify and initialize the selected access mode (Learn, Recall, or Compute).
 
         Parameters:
-            mode (str): The access mode. Options are:
-                        't' - Training mode (requires password and shows training guidelines)
-                        'c' - Commercial mode (no training features, read-only usage)
-                        'e' - Experimental mode (enables reasoning features, no DB writes)
-
+            mode (str): The access mode. Options:
+                        'learn' for training mode (to train the bot with queries),
+                        'recall' for recalling learned queries (to use it in your deployment/production program),
+                        'compute' for mathematical queries (for arithmetic or conversion queries).
         Behavior:
-            - If mode is 't', prompts for a password and displays mandatory training instructions.
-            - If mode is 'c', enters Commercial mode without training privileges.
-            - If mode is 'e', proceeds with Experimental mode with reasoning capabilities.
+            - If mode is 'learn', prompts for a password and displays mandatory training instructions.
+            - If mode is 'recall', enters deployment mode without training privileges.
+            - If mode is 'compute', proceeds with computation model with reasoning capabilities.
         """
-        if mode.lower() == "t":
-            password = input("Enter the password to enter Training Mode: ")
+        if mode.lower() == "learn":
+            password = input("Enter the password to enter Learn Mode: ")
             while password != self.__trainingPwd:
                 password = input(
-                    "Password is incorrect, try again or type 'stop' to enter in commercial mode instead: ")
+                    "Password is incorrect, try again or type 'stop' to enter in recall mode instead: ")
                 if password.lower() == "stop":
-                    self.__mode = "commercial"
+                    self.__mode = "recall"
                     print("\n")
                     break
             if password == self.__trainingPwd:
@@ -407,14 +405,14 @@ class DLM:
                 while confirmation.lower() != "y":  # trainers must understand the instructions above
                     confirmation = input(
                         "You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
-                self.__mode = "training"
+                self.__mode = "learn"
                 print("\n")
                 self.__loadingAnimation("Logging in as Trainer", 0.6)
                 print("\n")
-        elif mode.lower() == "c":
-            self.__mode = "commercial"
+        elif mode.lower() == "recall":
+            self.__mode = "recall"
         else:
-            self.__mode = "experimental"
+            self.__mode = "compute"
 
     def __create_table_if_missing(self):  # no return, void
         """
@@ -535,7 +533,7 @@ class DLM:
             - Tokenizes the input into words.
             - Removes filler words unless:
                 - It's the first word and part of the exception list.
-                - The current mode is 'experimental' and the word is a computation keyword.
+                - The current mode is 'compute' and the word is a computation keyword.
             - Preserves word order while removing duplicates.
             - Joins the remaining words back into a single filtered string.
         """
@@ -553,12 +551,12 @@ class DLM:
 
             # otherwise, only keep non-fillers
             else:
-                # In experimental mode, keep any computation keyword even if it's also a filler
+                # In compute mode, keep any computation keyword even if it's also a filler
                 is_computation_kw = any(word_lowered == kw.lower()
                                         for kws in self.__computation_identifiers.values()
                                         for kw in kws)
 
-                if word_lowered not in self.__filler_words or (self.__mode == "experimental" and is_computation_kw):
+                if word_lowered not in self.__filler_words or (self.__mode == "compute" and is_computation_kw):
                     filtered_words.append(word)
 
         # remove duplicates while preserving order (numbers excluded)
@@ -634,7 +632,7 @@ class DLM:
         height_value_index = None
         other_values = []
         object_intel = []
-        common_endings = ["ular", "ish", "al"] # some people might say "squarish" or "rectangular" etc
+        common_endings = ["ular", "ish", "al"]  # some people might say "squarish" or "rectangular" etc
 
         tokens = filtered_query.split()
         lower_tokens = [t.lower() for t in tokens]
@@ -714,39 +712,45 @@ class DLM:
                         break
                 if end_check:
                     break
-        
+
         # if allowed, display the inner thought process
         obj_name = object_intel[1]
         if display_thought:
             self.__loadingAnimation(f"It seems that the user wants to compute the {' of a '.join(object_intel)}", 0.5)
             if height_value is not None:
-                self.__loadingAnimation(f"* The user has mentioned that the height of the {obj_name} object is {height_value}", 0.4)
+                self.__loadingAnimation(
+                    f"* The user has mentioned that the height of the {obj_name} object is {height_value}", 0.4)
             else:
-                self.__loadingAnimation(f"* The {object_intel[1]} object has no height associated with it, so moving on", 0.4)
+                self.__loadingAnimation(
+                    f"* The {object_intel[1]} object has no height associated with it, so moving on", 0.4)
             if len(other_values) > 0:
-                self.__loadingAnimation(f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}", 0.4)
+                self.__loadingAnimation(
+                    f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}",
+                    0.4)
             else:
-                self.__loadingAnimation(f"* No additional numerical values associated with the dimensions of the {obj_name} were given",0.4)
+                self.__loadingAnimation(
+                    f"* No additional numerical values associated with the dimensions of the {obj_name} were given",
+                    0.4)
 
         # Now iterate through the geometric identifier list, find the correct object, and then find its formula, then plug compute
         formula = self.__geometric_calculation_identifiers[obj_name]["formula"]
         params = self.__geometric_calculation_identifiers[obj_name]["params"]
 
-        formula_inputs = {} # all data gathered to compute geometry
-        
+        formula_inputs = {}  # all data gathered to compute geometry
+
         # gather and plug in values into the formula
         try:
             if "height" in params:
                 formula_inputs["height"] = height_value
-            
-            value_idx = 0 # count how many values to be added in formula_inputs
+
+            value_idx = 0  # count how many values to be added in formula_inputs
             for param in params:
                 if param == "height":
                     continue  # already added
-                elif param == "other": # two consecutive numbers to append
+                elif param == "other":  # two consecutive numbers to append
                     formula_inputs["other"] = other_values[value_idx:value_idx + 2]
                     value_idx += 2
-                else: # only one number to append
+                else:  # only one number to append
                     formula_inputs[param] = other_values[value_idx]
                     value_idx += 1
 
@@ -756,11 +760,12 @@ class DLM:
 
         except Exception as e:
             if display_thought:
-                print(f"{'\033[33m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
+                print(
+                    f"{'\033[33m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
             else:
-                print(f"{'\033[34m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
+                print(
+                    f"{'\033[34m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
             return None
-
 
     def __perform_advanced_CoT(self, filtered_query, display_thought):  # no return, void
         """
@@ -798,7 +803,8 @@ class DLM:
             print(
                 f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
             self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
-            self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now", 0.8)
+            self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now",
+                                    0.8)
 
         # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
         for ent in doc.ents:
@@ -830,10 +836,12 @@ class DLM:
         words = filtered_query.lower().split()
         geometric_ans = None
         # checks if the query contains shapes or object to perform possibly formula calculation
-        geometric_calc = any(difflib.get_close_matches(word, self.__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70) for word in words)
+        geometric_calc = any(
+            difflib.get_close_matches(word, self.__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70) for word
+            in words)
         is_geometric_query = False
 
-        geo_types = set() # currently supported types of geometric calculations
+        geo_types = set()  # currently supported types of geometric calculations
 
         for t in self.__geometric_calculation_identifiers:
             shape = self.__geometric_calculation_identifiers[t]["keywords"]
@@ -842,7 +850,7 @@ class DLM:
             geometric_ans = self.__geometric_calculation(filtered_query, display_thought)
             if geometric_ans is not None:
                 is_geometric_query = True
-        else: # Not geometric, so have the bot find all operand indicating keywords
+        else:  # Not geometric, so have the bot find all operand indicating keywords
             found_operand = False
             for fq in filtered_query.split():
                 fq_l = fq.lower()
@@ -992,22 +1000,33 @@ class DLM:
                     operands_mentioned = [op for op in operands_mentioned if op != '=']
 
         # verify and possibly print thoughts
-        if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
-            print(f"{self.__loadingAnimation('Hmm', 0.8) or '' if display_thought else ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
-            print(f"\033[34mIf you are asking a geometric query, try including geometric identifiers like \"{'\", \"'.join(geo_types)}\" in your query.\033[0m")
-            print(f"\033[34mCurrently, I can only compute those identifiers aforementioned, but more geometric features are coming soon!\033[0m")
+        if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or (
+                '=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
+            print(
+                f"{self.__loadingAnimation('Hmm', 0.8) or '' if display_thought else ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+            print(
+                f"\033[34mIf you are asking a geometric query, try including geometric identifiers like \"{'\", \"'.join(geo_types)}\" in your query.\033[0m")
+            print(
+                f"\033[34mCurrently, I can only compute those identifiers aforementioned, but more geometric features are coming soon!\033[0m")
         else:  # else, the bot needs to explain what it has tokenized
             if display_thought:
-                self.__loadingAnimation(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
+                self.__loadingAnimation(
+                    f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
                     f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
-                self.__loadingAnimation(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
+                self.__loadingAnimation(
+                    f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
                     f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
                     0.2)
                 if is_geometric_query:
-                    self.__loadingAnimation(f"3.) This is a geometric problem and I have already computed the answer", 0.2)
+                    self.__loadingAnimation(f"3.) This is a geometric problem and I have already computed the answer",
+                                            0.2)
                 else:
-                    self.__loadingAnimation(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with", 0.2)
-                    self.__loadingAnimation(f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation", 0.2)
+                    self.__loadingAnimation(
+                        f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with",
+                        0.2)
+                    self.__loadingAnimation(
+                        f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
+                        0.2)
                     self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
 
             # Finally compute it and then give the response (if there is any)
@@ -1172,7 +1191,7 @@ class DLM:
 
         Behavior:
             - Outputs step-by-step reasoning in a conversational format (e.g., interpreting the question's structure and tone).
-            - In experimental mode, calls advanced reasoning (e.g., math parsing or CoT decomposition).
+            - In compute mode, calls advanced reasoning (e.g., math parsing or CoT decomposition).
             - Identifies the question's tone, topic, and potential intent based on interrogative words and SpaCy similarity.
             - Displays confidence based on similarity metrics and sets flags for uncertain answers.
             - Uses colorized terminal output and a loading animation to simulate reflective thought.
@@ -1188,7 +1207,7 @@ class DLM:
                 if self.__tone != "":
                     print(
                         f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
-                if self.__mode == "experimental":
+                if self.__mode == "compute":
                     self.__perform_advanced_CoT(filtered_query, display_thought)
                 else:
                     interrogative_start = filtered_query.split()[0]
@@ -1243,7 +1262,7 @@ class DLM:
                                 f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
                         self.__loadingAnimation("Let me recall that answer", 0.8)
             print("\n")
-        elif self.__mode == "experimental":
+        elif self.__mode == "compute":
             self.__perform_advanced_CoT(filtered_query, display_thought)
 
     def __generate_response(self, best_match_answer, best_match_question):  # no return, void
@@ -1526,8 +1545,8 @@ class DLM:
             - Detects tone, filters input, searches knowledge base.
             - Performs Chain-of-Thought (CoT) while recalling learnt answer.
             - If match is found, generates a response.
-            - If in training mode and answer is incorrect or not found, prompts user to teach the bot.
-            - In experimental mode, performs reasoning or arithmetic without using database.
+            - If in learning mode and answer is incorrect or not found, prompts user to teach the bot.
+            - In compute mode, performs reasoning or arithmetic without using database.
         """
         self.__query = query
         while self.__query is None or self.__query == "":
@@ -1536,7 +1555,7 @@ class DLM:
         self.__set_sentiment_tone(self.__query)  # sets global variable sentiment tone
 
         # storing the user-query (filtered, lower-case, no punctuation)
-        if self.__mode == "experimental":
+        if self.__mode == "compute":
             # We want to keep the following
             keep = {".", "+", "-", "*", "/", "="}
             to_remove = "".join(ch for ch in string.punctuation if ch not in keep)
@@ -1584,13 +1603,13 @@ class DLM:
                                 display_thought)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if self.__mode != "experimental":
+        if self.__mode != "compute":
             if (not self.__unsure_while_thinking) and ((highest_similarity >= 0.65) or (
                     best_match_answer and self.__semantic_similarity(self.__special_stripped_query,
                                                                      best_match_question))):
                 self.__unsure_while_thinking = False  # reset this back to default for next iteration
                 self.__generate_response(best_match_answer, best_match_question)
-                if self.__mode == "training":
+                if self.__mode == "learn":
                     self.__expectation = input("Is this what you expected (Y/N): ")
 
                     while not self.__expectation:  # if nothing entered, ask until question answered
@@ -1603,7 +1622,7 @@ class DLM:
                     return
 
             # only executes if training option is TRUE
-            if self.__mode == "training":
+            if self.__mode == "learn":
                 self.__expectation = input(
                     "I'm not sure. Train me with the expected response: ")  # train DLM with answer
                 while not self.__expectation:
@@ -1621,5 +1640,5 @@ class DLM:
                 self.__learn(self.__expectation,
                              self.__category)  # learn this new question and answer pair and add to knowledgebase
                 print("I learned something new!")  # confirmation that it went through the whole process
-            else:  # only executes when in commercial mode and bot cannot find the answer
+            else:  # only executes when in recall mode and bot cannot find the answer
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
