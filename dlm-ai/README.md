@@ -62,9 +62,7 @@ computation_bot = DLM("compute", "college_knowledge.db")
 computation_bot.ask("Tell me the result for the following: 5 * 5 * 5 + 5 / 5", True)
 ```
 
-**HIGH-LEVEL PIPELINE VISUALS**:
+**HIGH-LEVEL PIPELINE VISUAL**:
 
-![image](https://github.com/user-attachments/assets/340dc69a-8374-45df-ac1e-82431c5111f2)
+![image](https://github.com/user-attachments/assets/e61d3f5d-87ca-4c81-bcb4-c28a0df65300)
 
-
-![image](https://github.com/user-attachments/assets/422f1045-07bc-4ddf-ae28-9f5731324b93)
