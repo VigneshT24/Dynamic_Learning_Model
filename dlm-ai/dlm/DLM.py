@@ -1,4 +1,3 @@
-# Dynamic-Learning Model (DLM) bot that learns how to respond to questions by learning from user input/expectations, as well as computationally solve arithmetics
 import difflib
 import string
 import random
@@ -343,7 +342,7 @@ class DLM:
             mode (str): The access mode. Options:
                         'learn' for training mode (to train the bot with queries),
                         'recall' for recalling learned queries (to use it in your deployment/production program),
-                        'compute' for mathematical queries (for arithmetic or conversion queries).
+                        'compute' for mathematical queries (for arithmetic, conversion, or geometric queries).
             db_filename (str): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
@@ -450,7 +449,7 @@ class DLM:
         conn.commit()
         conn.close()
 
-    def __get_category(self, exact_question):  # returns category as a string
+    def __get_category(self, exact_question):  # returns category as a string or None
         """
         Retrieve the category (question type) associated with a specific question from the SQLite knowledge base.
 
@@ -478,7 +477,7 @@ class DLM:
         else:
             return None  # question not found
 
-    def __get_specific_question(self, exact_answer):  # returns question as a string
+    def __get_specific_question(self, exact_answer):  # returns question as a string or None
         """
         Retrieve the original question associated with a given answer from the SQLite knowledge base.
 
@@ -610,7 +609,7 @@ class DLM:
         else:
             self.__tone = ""
 
-    def __geometric_calculation(self, filtered_query, display_thought):
+    def __geometric_calculation(self, filtered_query, display_thought): # returns float result or None
         """
         Perform geometric problems that will be called inside perform_advanced_CoT
 
@@ -1177,8 +1176,7 @@ class DLM:
                 print(
                     f"{'\033[34m'}That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?{'\033[0m'}")
 
-    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity,
-                           display_thought):  # no return, void
+    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought):  # no return, void
         """
         Simulate a Chain-of-Thought (CoT) reasoning process by printing the bot's internal analysis.
 
