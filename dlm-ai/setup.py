@@ -5,7 +5,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='dynamic-learning-model',
-    version='2.0',
+    version='2.0.1',
     author='Vignesh Thondikulam',
     author_email='vignesh.tho2006@gmail.com',
     description='A Dynamic Learning Model for processing NLP queries using hybrid AI and reasoning.',
@@ -25,6 +25,6 @@ setup(
         'Operating System :: OS Independent',
         'License :: OSI Approved :: MIT License',
     ],
-    python_requires='>=3.7',
+    python_requires='>=3.12',
     license='MIT',
 )
