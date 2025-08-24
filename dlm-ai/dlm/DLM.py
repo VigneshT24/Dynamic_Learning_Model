@@ -23,7 +23,8 @@ class DLM:
     __unsure_while_thinking = False  # if uncertain while thinking, then it will let the user know that
     __nlp_similarity_value = None  # saves the similarity value by doing SpaCy calculation (for debugging)
     __special_stripped_query = None  # saves query without any special words for reduced interference while vector calculating
-    __nltk_names = set(name.lower() for name in names.words())
+    __nltk_names = set(name.lower() for name in names.words()) # list of name corpus to be identified in complex word problems
+    __refuse_to_respond = False # if profanity or all caps-lock frustration is detected, refuse to respond and suggest user to try again (bot respect)
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -334,6 +335,19 @@ class DLM:
         "quarter": 0.25, "quarters": 0.25
     }
 
+    # Response for when user uses profanity and all caps, indicating extreme anger
+    __refuse_to_respond_statements = [
+        "I understand you may be upset. However, I can’t respond to messages expressed in anger. Please rephrase calmly so I can assist you.",
+        "Your message seems written in frustration. For a constructive exchange, I need you to restate it respectfully.",
+        "I want to help, but I won’t respond to hostile language. Please rewrite your query in a calmer tone.",
+        "I can see this might be frustrating. I can’t respond while the message is written in anger, but if you rephrase, I’ll gladly help.",
+        "I know emotions can run high, but I need a calmer phrasing to continue. Please try rewording your question.",
+        "It sounds like you’re upset. Let’s take a step back — rephrase your question respectfully and I’ll do my best to answer.",
+        "Looks like the tone came across strongly. Please rephrase in a calmer way so I can give you the best answer.",
+        "I can’t respond to messages phrased in anger. Try again in a clearer, more respectful tone, and I’ll assist right away.",
+        "Let’s reset. Rephrase your question without the frustration, and I’ll be able to help you effectively."
+    ]
+
     def __init__(self, mode, db_filename="dlm_database.db"):  # initializes SQL database & SpaCy NLP
         """
         Initialize the Dynamic-Learning Model (DLM) chatbot.
@@ -585,8 +599,8 @@ class DLM:
         Behavior:
             - Detects aggressive language using profanity filtering.
             - Analyzes punctuation and casing to infer emotional tone such as:
-                - 'angry aggressive' for profane content
-                - 'angry frustrated' for all-uppercase text
+                - 'angry aggressive' for profane content - refuse to respond
+                - 'angry frustrated' for all-uppercase text - refuse to respond
                 - 'angry confused' for combined "?" and "!"
                 - 'angry excited' for "!" only
                 - 'confused unclear' for "?" only
@@ -594,20 +608,24 @@ class DLM:
             - Stores the result in self.__tone as a string label.
         """
         is_profane = profanity.contains_profanity(orig_input)
-        if is_profane:
-            self.__tone = "angry aggressive"
-        elif orig_input == orig_input.upper():
-            self.__tone = "angry frustrated"
-        elif orig_input.__contains__("?") and orig_input.__contains__("!"):
-            self.__tone = "angry confused"
-        elif orig_input.__contains__("!"):
-            self.__tone = "angry excited"
-        elif orig_input.__contains__("?"):
-            self.__tone = "confused unclear"
-        elif orig_input.__contains__("...") or orig_input.__contains__(".."):
-            self.__tone = "doubtful uncertain"
+        if is_profane and orig_input == orig_input.upper(): # too inappropriate to respond
+            self.__refuse_to_respond = True
         else:
-            self.__tone = ""
+            self.__refuse_to_respond = False
+            if is_profane:
+                self.__tone = "angry aggressive"
+            elif orig_input == orig_input.upper():
+                self.__tone = "angry frustrated"
+            elif orig_input.__contains__("?") and orig_input.__contains__("!"):
+                self.__tone = "angry confused"
+            elif orig_input.__contains__("!"):
+                self.__tone = "angry excited"
+            elif orig_input.__contains__("?"):
+                self.__tone = "confused unclear"
+            elif orig_input.__contains__("...") or orig_input.__contains__(".."):
+                self.__tone = "doubtful uncertain"
+            else:
+                self.__tone = ""
 
     def __geometric_calculation(self, filtered_query, display_thought): # returns float result or None
         """
@@ -1551,6 +1569,13 @@ class DLM:
             self.__query = input("Empty input is unacceptable. Please enter something: ")
 
         self.__set_sentiment_tone(self.__query)  # sets global variable sentiment tone
+        while self.__refuse_to_respond:
+            print()
+            self.__query = input(random.choice(self.__refuse_to_respond_statements) + "\nTry again: ")
+            while self.__query is None or self.__query == "":
+                self.__query = input("Empty input is unacceptable. Please enter something: ")
+            self.__set_sentiment_tone(self.__query)
+
 
         # storing the user-query (filtered, lower-case, no punctuation)
         if self.__mode == "compute":
