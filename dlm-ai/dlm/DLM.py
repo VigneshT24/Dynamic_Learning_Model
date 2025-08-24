@@ -223,8 +223,8 @@ class DLM:
         },
         "rectangle": {
             "keywords": ["area", "rectangle"],
-            "params": ["length", "width"],
-            "formula": lambda d: d["length"] * d["width"]
+            "params": ["height", "width"],
+            "formula": lambda d: d["height"] * d["width"]
         },
         "parallelogram": {
             "keywords": ["area", "parallelogram"],
@@ -265,8 +265,10 @@ class DLM:
         },
         "rectangular prism": {
             "keywords": ["volume", "rectangular prism"],
-            "params": ["length", "width", "height"],
-            "formula": lambda d: d["length"] * d["width"] * d["height"]
+            # "params": ["length", "width", "height"],
+            # "formula": lambda d: d["length"] * d["width"] * d["height"]
+            "params": ["height", "length", "width"],
+            "formula": lambda d: d["height"] * d["length"] * d["width"]
         },
         "cylinder": {
             "keywords": ["volume", "cylinder"],
@@ -708,9 +710,13 @@ class DLM:
                         break
                 is_similar = difflib.get_close_matches(phrase, [obj], n=1, cutoff=0.70)
                 if is_similar and is_similar[0] == obj:
-                    object_intel.extend(self.__geometric_calculation_identifiers[obj]["keywords"])
-                    end_check = True
-                    break
+                    geom_type = self.__geometric_calculation_identifiers[obj]["keywords"]
+                    if (lower_tokens.__contains__(geom_type[0])):
+                        object_intel.extend(geom_type)
+                        end_check = True
+                        break
+                    else:
+                        continue
             if end_check:
                 break
 
@@ -759,9 +765,13 @@ class DLM:
         try:
             if "height" in params:
                 formula_inputs["height"] = height_value
+            if "side" in params:
+                formula_inputs["side"] = height_value
 
             value_idx = 0  # count how many values to be added in formula_inputs
             for param in params:
+                if len(other_values) < 1:
+                    break
                 if param == "height":
                     continue  # already added
                 elif param == "other":  # two consecutive numbers to append
@@ -770,7 +780,8 @@ class DLM:
                 else:  # only one number to append
                     formula_inputs[param] = other_values[value_idx]
                     value_idx += 1
-
+                    if len(other_values) <= 1:
+                        break
             # Try calculating the result and return
             result = round(formula(formula_inputs), 4)
             return result
