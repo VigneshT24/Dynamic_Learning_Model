@@ -19,7 +19,7 @@ setup(
         'spacy',
         'better_profanity',
         'word2number',
-        'transformers,
+        'transformers',
         'hf_xet'
     ],
     classifiers=[
