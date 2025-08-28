@@ -7,6 +7,7 @@ import sqlite3
 import re
 import nltk
 import math
+from transformers import pipeline
 from better_profanity import profanity
 from nltk.corpus import names
 from word2number import w2n
@@ -19,12 +20,14 @@ class DLM:
     __nlp = None  # Spacy NLP analysis
     __tone = None  # sentimental tone of user query
     __trainingPwd = "371507"  # password to enter training mode
-    __mode = None  # either "learn", "recall", or "compute"
+    __mode = None  # either "learn" or "apply"
     __unsure_while_thinking = False  # if uncertain while thinking, then it will let the user know that
     __nlp_similarity_value = None  # saves the similarity value by doing SpaCy calculation (for debugging)
     __special_stripped_query = None  # saves query without any special words for reduced interference while vector calculating
     __nltk_names = set(name.lower() for name in names.words()) # list of name corpus to be identified in complex word problems
     __refuse_to_respond = False # if profanity or all caps-lock frustration is detected, refuse to respond and suggest user to try again (bot respect)
+    __model = None # BETA: bot automatically chooses between "compute" or "memory" model based on query type
+    __hf_classifier = None # loading huggingface model to determine the query type for auto_mode
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -356,21 +359,22 @@ class DLM:
 
         Parameters:
             mode (str): The access mode. Options:
-                        'learn' for training mode (to train the bot with queries),
-                        'recall' for recalling learned queries (to use it in your deployment/production program),
-                        'compute' for mathematical queries (for arithmetic, conversion, or geometric queries).
+                        'learn' for training mode (to train the bot with queries).
+                        'apply' for a trained model to choose between compute and memory mode.
             db_filename (str): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
         Behavior:
             - Loads the SpaCy NLP model ('en_core_web_lg').
+            - Loads the HuggingFace model for auto-model detection.
             - Loads Better-Profanity for profane phrase sensing.
             - Connects to the specified SQLite database file.
-            - Set appropriate mode value
-            - Verify login information based on mode
+            - Set appropriate mode value.
+            - Verify login information based on mode.
             - Ensures the required table structure exists (creates if missing).
         """
         self.__nlp = spacy.load("en_core_web_lg")
+        self.__hf_classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
         profanity.load_censor_words()
         self.__filename = db_filename
         self.__mode = mode
@@ -379,25 +383,22 @@ class DLM:
 
     def __login_verification(self, mode):  # no return, void
         """
-        Verify and initialize the selected access mode (Learn, Recall, or Compute).
+        Verify and initialize the selected access mode (Learn or Apply).
 
         Parameters:
             mode (str): The access mode. Options:
-                        'learn' for training mode (to train the bot with queries),
-                        'recall' for recalling learned queries (to use it in your deployment/production program),
-                        'compute' for mathematical queries (for arithmetic or conversion queries).
+                        'learn' for training mode (to train the bot with queries).
+                        'apply' for trained model to choose "compute" or "memory" mode.
         Behavior:
             - If mode is 'learn', prompts for a password and displays mandatory training instructions.
-            - If mode is 'recall', enters deployment mode without training privileges.
-            - If mode is 'compute', proceeds with computation model with reasoning capabilities.
+            - If mode is 'apply', enters without prompting password and allows model to answer queries.
         """
         if mode.lower() == "learn":
             password = input("Enter the password to enter Learn Mode: ")
             while password != self.__trainingPwd:
-                password = input(
-                    "Password is incorrect, try again or type 'stop' to enter in recall mode instead: ")
+                password = input("Password is incorrect, try again or type 'stop' to enter in apply mode instead: ")
                 if password.lower() == "stop":
-                    self.__mode = "recall"
+                    self.__mode = "apply"
                     print("\n")
                     break
             if password == self.__trainingPwd:
@@ -418,16 +419,13 @@ class DLM:
                 confirmation = input(
                     "Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
                 while confirmation.lower() != "y":  # trainers must understand the instructions above
-                    confirmation = input(
-                        "You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
+                    confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
                 self.__mode = "learn"
                 print("\n")
-                self.__loadingAnimation("Logging in as Trainer", 0.6)
+                self.__loading_animation("Logging in as Trainer", 0.6)
                 print("\n")
-        elif mode.lower() == "recall":
-            self.__mode = "recall"
         else:
-            self.__mode = "compute"
+            self.__mode = "apply"
 
     def __create_table_if_missing(self):  # no return, void
         """
@@ -436,10 +434,10 @@ class DLM:
         Behavior:
             - Establishes a connection to the SQLite database specified by self.__filename.
             - Creates the 'knowledge_base' table if it does not exist, with the following columns:
-                - id (INTEGER, PRIMARY KEY, AUTOINCREMENT)
-                - question (TEXT, NOT NULL, UNIQUE)
-                - answer (TEXT, NOT NULL)
-                - category (TEXT, NOT NULL)
+                - id (INTEGER, PRIMARY KEY, AUTOINCREMENT).
+                - question (TEXT, NOT NULL, UNIQUE).
+                - answer (TEXT, NOT NULL).
+                - category (TEXT, NOT NULL).
             - If the table already exists but is missing the 'category' column, the method adds it with a default empty string.
             - Used exclusively within the class constructor to ensure the database schema is properly initialized.
         """
@@ -528,7 +526,7 @@ class DLM:
 
     @staticmethod
     # loading animation for bot thought process
-    def __loadingAnimation(user_input, duration):  # no return, void
+    def __loading_animation(user_input, duration):  # no return, void
         for seconds in range(0, 3):
             print(f"{'\033[33m'}\r{user_input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
             time.sleep(duration)
@@ -548,7 +546,7 @@ class DLM:
             - Tokenizes the input into words.
             - Removes filler words unless:
                 - It's the first word and part of the exception list.
-                - The current mode is 'compute' and the word is a computation keyword.
+                - The current model is 'compute' and the word is a computation keyword.
             - Preserves word order while removing duplicates.
             - Joins the remaining words back into a single filtered string.
         """
@@ -571,7 +569,7 @@ class DLM:
                                         for kws in self.__computation_identifiers.values()
                                         for kw in kws)
 
-                if word_lowered not in self.__filler_words or (self.__mode == "compute" and is_computation_kw):
+                if word_lowered not in self.__filler_words or (self.__model == "compute" and is_computation_kw):
                     filtered_words.append(word)
 
         # remove duplicates while preserving order (numbers excluded)
@@ -601,12 +599,12 @@ class DLM:
         Behavior:
             - Detects aggressive language using profanity filtering.
             - Analyzes punctuation and casing to infer emotional tone such as:
-                - 'angry aggressive' for profane content - refuse to respond
-                - 'angry frustrated' for all-uppercase text - refuse to respond
-                - 'angry confused' for combined "?" and "!"
-                - 'angry excited' for "!" only
-                - 'confused unclear' for "?" only
-                - 'doubtful uncertain' for ellipses ("..." or "..")
+                - 'angry aggressive' for profane content - refuse to respond.
+                - 'angry frustrated' for all-uppercase text - refuse to respond.
+                - 'angry confused' for combined "?" and "!".
+                - 'angry excited' for "!" only.
+                - 'confused unclear' for "?" only.
+                - 'doubtful uncertain' for ellipses ("..." or "..").
             - Stores the result in self.__tone as a string label.
         """
         is_profane = profanity.contains_profanity(orig_input)
@@ -631,20 +629,20 @@ class DLM:
 
     def __geometric_calculation(self, filtered_query, display_thought): # returns float result or None
         """
-        Perform geometric problems that will be called inside perform_advanced_CoT
+        Perform geometric problems that will be called inside perform_advanced_CoT.
 
         Parameters:
-            filtered_query (str): user query that has been filtered to have mostly computational details
-            display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer
+            filtered_query (str): user query that has been filtered to have mostly computational details.
+            display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
 
         Returns:
-            float: The result after computing the geometric calculation
+            float: The result after computing the geometric calculation.
 
         Behavior:
-            - Search through query to find specific keywords like 'area' or 'volume'
-            - Then, search to find shape or object to perform math on like 'triangle' or 'square'
-            - Find numbers associated with object details and store in appropriate list
-            - Finally, find appropriate formula with identifiers and plug in and return answer
+            - Search through query to find specific keywords like 'area' or 'volume'.
+            - Then, search to find shape or object to perform math on like 'triangle' or 'square'.
+            - Find numbers associated with object details and store in appropriate list.
+            - Finally, find appropriate formula with identifiers and plug in and return answer.
 
         """
         height_value = None
@@ -739,19 +737,19 @@ class DLM:
         # if allowed, display the inner thought process
         obj_name = object_intel[1]
         if display_thought:
-            self.__loadingAnimation(f"It seems that the user wants to compute the {' of a '.join(object_intel)}", 0.5)
+            self.__loading_animation(f"It seems that the user wants to compute the {' of a '.join(object_intel)}", 0.5)
             if height_value is not None:
-                self.__loadingAnimation(
+                self.__loading_animation(
                     f"* The user has mentioned that the height of the {obj_name} object is {height_value}", 0.4)
             else:
-                self.__loadingAnimation(
+                self.__loading_animation(
                     f"* The {object_intel[1]} object has no height associated with it, so moving on", 0.4)
             if len(other_values) > 0:
-                self.__loadingAnimation(
+                self.__loading_animation(
                     f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}",
                     0.4)
             else:
-                self.__loadingAnimation(
+                self.__loading_animation(
                     f"* No additional numerical values associated with the dimensions of the {obj_name} were given",
                     0.4)
 
@@ -782,6 +780,11 @@ class DLM:
                     value_idx += 1
                     if len(other_values) <= 1:
                         break
+
+            if formula_inputs["height"] is None and len(other_values) > 1:
+                formula_inputs["height"] = other_values[len(other_values) - 1]
+                other_values.pop(len(other_values) - 1)
+
             # Try calculating the result and return
             result = round(formula(formula_inputs), 4)
             return result
@@ -800,8 +803,8 @@ class DLM:
         Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
 
         Parameters:
-            filtered_query (str): The cleaned user input, expected to be a math- or logic-based question.
-            display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer
+            filtered_query (str): The cleaned user input, expected to be a math or logic-based question.
+            display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
 
         Behavior:
             - Simulates step-by-step reasoning to solve arithmetic word problems without relying on memorized answers.
@@ -830,8 +833,8 @@ class DLM:
         if display_thought:
             print(
                 f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
-            self.__loadingAnimation("Let me think about this carefully and break it down so that I can solve it", 0.8)
-            self.__loadingAnimation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now",
+            self.__loading_animation("Let me think about this carefully and break it down so that I can solve it", 0.8)
+            self.__loading_animation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now",
                                     0.8)
 
         # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
@@ -1031,31 +1034,31 @@ class DLM:
         if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or (
                 '=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
             print(
-                f"{self.__loadingAnimation('Hmm', 0.8) or '' if display_thought else ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+                f"{self.__loading_animation('Hmm', 0.8) or '' if display_thought else ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
             print(
                 f"\033[34mIf you are asking a geometric query, try including geometric identifiers like \"{'\", \"'.join(geo_types)}\" in your query.\033[0m")
             print(
                 f"\033[34mCurrently, I can only compute those identifiers aforementioned, but more geometric features are coming soon!\033[0m")
         else:  # else, the bot needs to explain what it has tokenized
             if display_thought:
-                self.__loadingAnimation(
+                self.__loading_animation(
                     f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
                     f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
-                self.__loadingAnimation(
+                self.__loading_animation(
                     f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
                     f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
                     0.2)
                 if is_geometric_query:
-                    self.__loadingAnimation(f"3.) This is a geometric problem and I have already computed the answer",
+                    self.__loading_animation(f"3.) This is a geometric problem and I have already computed the answer",
                                             0.2)
                 else:
-                    self.__loadingAnimation(
+                    self.__loading_animation(
                         f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with",
                         0.2)
-                    self.__loadingAnimation(
+                    self.__loading_animation(
                         f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
                         0.2)
-                    self.__loadingAnimation("Now I have the parts, so let me put it all together and solve", 0.3)
+                    self.__loading_animation("Now I have the parts, so let me put it all together and solve", 0.3)
 
             # Finally compute it and then give the response (if there is any)
             # move "originally" numbers to the front
@@ -1165,7 +1168,7 @@ class DLM:
                     if source_key and target_key:
                         result = (num0 * self.__units[source_key]) / self.__units[target_key]
                         if display_thought:
-                            self.__loadingAnimation(
+                            self.__loading_animation(
                                 f"I need to take {num0} and multiply it by {self.__units[source_key]}. Finally, I divide by {self.__units[target_key]} and I got my answer",
                                 0.2)
                         expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
@@ -1214,7 +1217,7 @@ class DLM:
             best_match_question (str): The closest matching question found in the knowledge base.
             best_match_answer (str): The corresponding answer to the matched question.
             highest_similarity (float): The calculated string similarity score (0 to 1) for the match.
-            display_thought (bool): "True" if the bot is allowed to print its thought or else "False"
+            display_thought (bool): "True" if the bot is allowed to print its thought or else "False".
 
         Behavior:
             - Outputs step-by-step reasoning in a conversational format (e.g., interpreting the question's structure and tone).
@@ -1234,7 +1237,7 @@ class DLM:
                 if self.__tone != "":
                     print(
                         f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
-                if self.__mode == "compute":
+                if self.__model == "compute":
                     self.__perform_advanced_CoT(filtered_query, display_thought)
                 else:
                     interrogative_start = filtered_query.split()[0]
@@ -1254,7 +1257,7 @@ class DLM:
                     else:
                         print(
                             f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
-                    self.__loadingAnimation("Let me think about this carefully", 0.8)
+                    self.__loading_animation("Let me think about this carefully", 0.8)
 
                     for s in special_start:
                         for u in filtered_query.split():
@@ -1275,7 +1278,7 @@ class DLM:
                             print(
                                 f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
                         print(
-                            f"{self.__loadingAnimation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let the user know that.{'\033[0m'}")
+                            f"{self.__loading_animation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let the user know that.{'\033[0m'}")
                         self.__unsure_while_thinking = True
                     else:
                         self.__unsure_while_thinking = False
@@ -1287,9 +1290,9 @@ class DLM:
                         if spacy_proceed:
                             print(
                                 f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
-                        self.__loadingAnimation("Let me recall that answer", 0.8)
+                        self.__loading_animation("Let me recall that answer", 0.8)
             print("\n")
-        elif self.__mode == "compute":
+        elif self.__model == "compute":
             self.__perform_advanced_CoT(filtered_query, display_thought)
 
     def __generate_response(self, best_match_answer, best_match_question):  # no return, void
@@ -1564,16 +1567,17 @@ class DLM:
         NOTICE: To make the bot run continuously, implement a loop in your program.
 
         Parameters:
-            query (str): Question the bot would answer, compute, or learn
-            display_thought (bool): "True" for allowing bot to print its thought and CoT or "False"
+            query (str): Question the bot would learn or respond to.
+            display_thought (bool): "True" for allowing bot to print its thought and CoT or "False".
 
         Behavior:
             - Prompts the user for input.
+            - Determines whether to choose "compute" or "memory" model to respond.
             - Detects tone, filters input, searches knowledge base.
             - Performs Chain-of-Thought (CoT) while recalling learnt answer.
             - If match is found, generates a response.
             - If in learning mode and answer is incorrect or not found, prompts user to teach the bot.
-            - In compute mode, performs reasoning or arithmetic without using database.
+            - In apply mode, automatically chooses between its compute and memory model to answer the query.
         """
         self.__query = query
         while self.__query is None or self.__query == "":
@@ -1587,9 +1591,18 @@ class DLM:
                 self.__query = input("Empty input is unacceptable. Please enter something: ")
             self.__set_sentiment_tone(self.__query)
 
+        # auto model choose using HuggingFace
+        if self.__mode != "learn":
+            auto_model_choice = self.__hf_classifier(self.__query, ["mathematical", "not mathematical"])["labels"][0]
+            if auto_model_choice == "mathematical":
+                self.__model = "compute"
+            else:
+                self.__model = "memory"
+        else:
+            self.__model = "memory"
 
         # storing the user-query (filtered, lower-case, no punctuation)
-        if self.__mode == "compute":
+        if self.__model == "compute":
             # We want to keep the following
             keep = {".", "+", "-", "*", "/", "="}
             to_remove = "".join(ch for ch in string.punctuation if ch not in keep)
@@ -1597,9 +1610,7 @@ class DLM:
             to_remove = string.punctuation
 
         translation_table = str.maketrans("", "", to_remove)
-        filtered_query = self.__filtered_input(
-            self.__query.lower().translate(translation_table)
-        )
+        filtered_query = self.__filtered_input(self.__query.lower().translate(translation_table))
 
         # match_query is the query without special words to prevent interference with SpaCy similarity
         self.__special_stripped_query = filtered_query
@@ -1637,7 +1648,7 @@ class DLM:
                                 display_thought)
 
         # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
-        if self.__mode != "compute":
+        if self.__model == "memory":
             if (not self.__unsure_while_thinking) and ((highest_similarity >= 0.65) or (
                     best_match_answer and self.__semantic_similarity(self.__special_stripped_query,
                                                                      best_match_question))):
@@ -1674,5 +1685,5 @@ class DLM:
                 self.__learn(self.__expectation,
                              self.__category)  # learn this new question and answer pair and add to knowledgebase
                 print("I learned something new!")  # confirmation that it went through the whole process
-            else:  # only executes when in recall mode and bot cannot find the answer
+            else:  # only executes when in apply mode and bot cannot find the answer
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
