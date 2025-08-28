@@ -28,6 +28,8 @@ class DLM:
     __refuse_to_respond = False # if profanity or all caps-lock frustration is detected, refuse to respond and suggest user to try again (bot respect)
     __model = None # BETA: bot automatically chooses between "compute" or "memory" model based on query type
     __hf_classifier = None # loading huggingface model to determine the query type for auto_mode
+    __successfully_computed = False # for when computation model was able to give an answer to a mathematical problem
+    __second_run = False # if the bot tried "memory" model first then decided to try "compute" model
 
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
@@ -180,7 +182,7 @@ class DLM:
             "divide", "divided by", "split", "shared equally",
             "per", "share", "shared", "equal parts", "equal groups",
             "ratio", "quotient", "for each", "out of",
-            "for every", "into", "average", "/", "÷"
+            "for every", "into", "/", "÷"
         ],
         # convert
         "=": [
@@ -825,7 +827,7 @@ class DLM:
             "sum", "combined", "add up", "accumulate", "bring to", "rise by", "grow by", "earned", "in all", "in total",
             "difference", "deduct", "decrease by", "fell by", "drop by", "ate",
             "multiply", "times", "product", "received", "pick", "paid", "gave", "pay",
-            "split", "shared equally", "equal parts", "equal groups", "ratio", "quotient", "average", "out of", "into"
+            "split", "shared equally", "equal parts", "equal groups", "ratio", "quotient", "out of", "into"
         ]
         filtered_query = filtered_query.title()
         doc = self.__nlp(filtered_query)
@@ -901,9 +903,7 @@ class DLM:
                         # Direct match or lemma match
                         if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
                             keywords_mentioned.append(kw.title())
-                            if kw.lower() == "average":
-                                operands_mentioned.append("+")
-                            elif kw.lower() == "out of":
+                            if kw.lower() == "out of":
                                 if word_num_surrounded:
                                     operands_mentioned.append(operand)
                                     found_operand = True
@@ -918,9 +918,7 @@ class DLM:
                         if p1.vector_norm != 0 and p2.vector_norm != 0 and (
                                 p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
                             keywords_mentioned.append(kw.title())
-                            if kw.lower() == "average":
-                                operands_mentioned.append("+")
-                            elif kw.lower() == "out of":
+                            if kw.lower() == "out of":
                                 if word_num_surrounded:
                                     operands_mentioned.append(operand)
                                     found_operand = True
@@ -934,9 +932,7 @@ class DLM:
                         # Fallback: high string similarity
                         elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
                             keywords_mentioned.append(kw.title())
-                            if kw.lower() == "average":
-                                operands_mentioned.append("+")
-                            elif kw.lower() == "out of":
+                            if kw.lower() == "out of":
                                 if word_num_surrounded:
                                     operands_mentioned.append(operand)
                                     found_operand = True
@@ -1031,14 +1027,16 @@ class DLM:
                     operands_mentioned = [op for op in operands_mentioned if op != '=']
 
         # verify and possibly print thoughts
-        if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or (
-                '=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
-            print(
-                f"{self.__loading_animation('Hmm', 0.8) or '' if display_thought else ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
-            print(
-                f"\033[34mIf you are asking a geometric query, try including geometric identifiers like \"{'\", \"'.join(geo_types)}\" in your query.\033[0m")
-            print(
-                f"\033[34mCurrently, I can only compute those identifiers aforementioned, but more geometric features are coming soon!\033[0m")
+        if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or ('=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
+            if (not self.__second_run):
+                print(
+                    f"{self.__loading_animation('Hmm', 0.8) or '' if display_thought else ''}{'\033[34m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+                print(
+                    f"\033[34mIf you are asking a geometric query, try including geometric identifiers like \"{'\", \"'.join(geo_types)}\" in your query.\033[0m")
+                print(
+                    f"\033[34mCurrently, I can only compute those identifiers aforementioned, but more geometric features are coming soon!\033[0m")
+            else:
+                self.__loading_animation('Hmm', 0.8)
         else:  # else, the bot needs to explain what it has tokenized
             if display_thought:
                 self.__loading_animation(
@@ -1094,6 +1092,7 @@ class DLM:
             # geometric problem
             if is_geometric_query:
                 print(f"{'\033[34m'}Geometric Answer: {geometric_ans}{'\033[0m'}")
+                self.__successfully_computed = True
             # conversion problem
             elif len(num_mentioned) == 1 and len(operands_mentioned) == 1:
                 try:
@@ -1173,6 +1172,7 @@ class DLM:
                                 0.2)
                         expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
                         print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
+                        self.__successfully_computed = True
                     else:
                         print(f"{'\033[33m'}Could not identify both source and target units.{'\033[0m'}")
                 except SyntaxError:
@@ -1198,10 +1198,12 @@ class DLM:
                         expr = "(" + expr + ") / " + str(len(num_mentioned))
                         result /= len(num_mentioned)
                     print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
+                    self.__successfully_computed = True
                 except SyntaxError:
                     print(
                         f"{'\033[34mAh'}, something about that stumped me. I’ll need to learn more to handle it properly.{'\033[0m'}")
             else:
+                self.__successfully_computed = False
                 print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
                 print(
                     f"{'\033[34m'}However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.{'\033[0m'}")
@@ -1278,7 +1280,7 @@ class DLM:
                             print(
                                 f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
                         print(
-                            f"{self.__loading_animation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer, so I am going to let the user know that.{'\033[0m'}")
+                            f"{self.__loading_animation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer.{'\033[0m'}")
                         self.__unsure_while_thinking = True
                     else:
                         self.__unsure_while_thinking = False
@@ -1686,4 +1688,12 @@ class DLM:
                              self.__category)  # learn this new question and answer pair and add to knowledgebase
                 print("I learned something new!")  # confirmation that it went through the whole process
             else:  # only executes when in apply mode and bot cannot find the answer
-                print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+                self.__loading_animation(f"Let me put this into my computation model, maybe it was a mathematical query", 0.5)
+                self.__model = "compute"
+                self.__second_run = True
+                self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
+                                        display_thought)
+                if not self.__successfully_computed:
+                    print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+                    self.__second_run = False
+                    self.__successfully_computed = False
