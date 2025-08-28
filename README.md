@@ -1,5 +1,6 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=SQLite&logoColor=white)
+![HuggingFace Transformers](https://img.shields.io/badge/-HuggingFace-3B4252?style=flat&logo=huggingface&logoColor=)
 
 # Dynamic Learning Model
 **ABOUT**:
@@ -20,8 +21,7 @@ Whether you're building a student support bot, a domain-specific assistant, or a
 * The constructor requires passing in two parameters:
   - Bot Mode:
       - 'learn' = Enables training using the memory model. The bot can be updated with new information,
-      - 'recall' = The bot uses the memory model in read-only mode (no training),
-      - 'compute' = Activates the computation model for processing and solving queries algorithmically (no training)
+      - 'apply' = The bot automatically switches between its "compute" and "memory" model depending on the query asked
   - Empty SQL Database for training the bot with queries and for the memory model
 * The ask() method also requires passing in two parameters:
   - Query: "What is the definition of FAFSA" (as an example)
@@ -44,22 +44,17 @@ training_bot = DLM("learn", "college_knowledge.db")
 training_bot.ask("What is FAFSA in college?", True)
 ```
 
-('recall' mode [deployment/production use after training])
+('apply' mode [deployment/production use after training])
 ```python
 from dlm import DLM
 
-commercial_bot = DLM("recall", "college_knowledge.db")
+commercial_bot = DLM("apply", "college_knowledge.db")
 
 commercial_bot.ask("What is the difference between FAFSA and CADAA in California?", False)
-```
 
-('compute' mode [computation queries])
-```python
-from dlm import DLM
+# or
 
-computation_bot = DLM("compute", "college_knowledge.db")
-
-computation_bot.ask("Tell me the result for the following: 5 * 5 * 5 + 5 / 5", True)
+commercial_bot.ask("Tell me the result for the following: 5 * 5 * 5 + 5 / 5", True)
 ```
 
 **HIGH-LEVEL PIPELINE VISUAL**:
