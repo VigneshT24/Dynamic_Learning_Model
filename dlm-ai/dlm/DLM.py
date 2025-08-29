@@ -4,10 +4,10 @@ import random
 import spacy
 import time
 import sqlite3
-from DLM_Compute_Model import perform_advanced_CoT
-from DLM_Memory_Model import get_category
-from DLM_Memory_Model import get_specific_question
-from DLM_Memory_Model import learn
+from .DLM_Compute_Model import perform_advanced_CoT
+from .DLM_Memory_Model import get_category
+from .DLM_Memory_Model import get_specific_question
+from .DLM_Memory_Model import learn
 import math
 from transformers import pipeline
 from better_profanity import profanity
