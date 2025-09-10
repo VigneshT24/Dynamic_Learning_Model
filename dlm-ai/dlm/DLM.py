@@ -26,7 +26,7 @@ class DLM:
     __nlp_similarity_value = None  # saves the similarity value by doing SpaCy calculation (for debugging)
     __special_stripped_query = None  # saves query without any special words for reduced interference while vector calculating
     __nltk_names = set(name.lower() for name in names.words()) # list of name corpus to be identified in complex word problems
-    __refuse_to_respond = False # if profanity or all caps-lock frustration is detected, refuse to respond and suggest user to try again (bot respect)
+    __refuse_to_respond = False # if profanity and all caps-lock frustration is detected, refuse to respond and suggest user to rephrase nicely
     __model = None # bot automatically chooses between "compute" or "memory" model based on query type (auto-routing)
     __hf_classifier = None # loading huggingface model to determine the query type for auto_mode
     __successfully_computed = False # for when computation model was able to give an answer to a mathematical problem
@@ -1038,13 +1038,18 @@ class DLM:
                 learn(self, self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
                 print("I learned something new!")  # confirmation that it went through the whole process
             else:  # only executes when in apply mode and bot cannot find the answer
-                if display_thought:
-                    self.__loading_animation(f"Let me put this into my computation model, maybe it was a mathematical query", 0.5)
-                self.__model = "compute"
-                self.__try_compute = True
-                self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
-                                        display_thought)
-                if not self.__successfully_computed:
+                if self.__try_compute:
+                    if display_thought:
+                        self.__loading_animation(f"Let me put this into my computation model, maybe it was a mathematical query", 0.5)
+                    self.__model = "compute"
+                    self.__try_compute = True
+                    self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
+                                            display_thought)
+                    if not self.__successfully_computed:
+                        print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+                        self.__try_compute = False
+                        self.__successfully_computed = False
+                else:
                     print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
                     self.__try_compute = False
-                    self.__successfully_computed = False
+                    self.__try_memory = False
