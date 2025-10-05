@@ -2,6 +2,8 @@
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=SQLite&logoColor=white)
 ![HuggingFace Transformers](https://img.shields.io/badge/-HuggingFace-3B4252?style=flat&logo=huggingface&logoColor=)
 
+![DLM Logo](https://ik.imagekit.io/cqhzoyggfm/DLM%20Logo.png?updatedAt=1759635222204)
+
 # Dynamic Learning Model
 **ABOUT**:
 
