@@ -74,7 +74,7 @@ def learn(self, expectation, category):  # no return, void
     c = conn.cursor()
     c.execute(
         "INSERT OR IGNORE INTO knowledge_base (question, answer, category) VALUES (?, ?, ?)",
-        (self.__special_stripped_query, expectation, category)
+        (self._DLM__special_stripped_query, expectation, category)
     )
     conn.commit()
     conn.close()
