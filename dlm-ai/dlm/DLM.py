@@ -20,7 +20,6 @@ class DLM:
     __category = None  # categorizes each question for efficient retrieval and basic NLG in SQL DB
     __nlp = None  # Spacy NLP analysis
     __tone = None  # sentimental tone of user query
-    __trainingPwd = "371507"  # password to enter training mode
     __mode = None  # either "learn" or "apply"
     __unsure_while_thinking = False  # if uncertain while thinking, then it will let the user know that
     __nlp_similarity_value = None  # saves the similarity value by doing SpaCy calculation (for debugging)
@@ -394,40 +393,32 @@ class DLM:
                         'learn' for training mode (to train the bot with queries).
                         'apply' for trained model to choose "compute" or "memory" mode.
         Behavior:
-            - If mode is 'learn', prompts for a password and displays mandatory training instructions.
-            - If mode is 'apply', enters without prompting password and allows model to answer queries.
+            - If mode is 'learn', displays mandatory training instructions that must be understood.
+            - If mode is 'apply', allows model to answer queries using trained data and compute model.
         """
         if mode.lower() == "learn":
-            password = input("Enter the password to enter Learn Mode: ")
-            while password != self.__trainingPwd:
-                password = input("Password is incorrect, try again or type 'stop' to enter in apply mode instead: ")
-                if password.lower() == "stop":
-                    self.__mode = "apply"
-                    print("\n")
-                    break
-            if password == self.__trainingPwd:
-                # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
-                print(
-                    f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
-                print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
-                print(
-                    "*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
-                print(
-                    "*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
-                print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
-                print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
-                print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
-                print(
-                    "*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
+            # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
+            print(
+                f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
+            print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
+            print(
+                "*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
+            print(
+                "*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
+            print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
+            print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
+            print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
+            print(
+                "*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
 
-                confirmation = input(
-                    "Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
-                while confirmation.lower() != "y":  # trainers must understand the instructions above
-                    confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
-                self.__mode = "learn"
-                print("\n")
-                self.__loading_animation("Logging in as Trainer", 0.6)
-                print("\n")
+            confirmation = input(
+                "Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
+            while confirmation.lower() != "y":  # trainers must understand the instructions above
+                confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
+            self.__mode = "learn"
+            print("\n")
+            self.__loading_animation("Logging in as Trainer", 0.6)
+            print("\n")
         else:
             self.__mode = "apply"
 
