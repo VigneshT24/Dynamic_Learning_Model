@@ -158,8 +158,6 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
                 if len(other_values) <= 1:
                     break
 
-        print(formula_inputs)
-
         if "height" in params:
             if formula_inputs["height"] is None and len(other_values) > 1:
                 formula_inputs["height"] = other_values[len(other_values) - 1]
