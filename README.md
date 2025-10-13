@@ -22,7 +22,7 @@ Whether you're building a student support bot, a domain-specific assistant, or a
 **REQUIRED PARAMETERS**:
 * The constructor requires passing in two parameters:
   - Bot Mode:
-      - 'learn' = Enables training using the memory model. The bot can be updated with new information,
+      - 'learn' = Enables training using the memory model. The bot can be updated with new information
       - 'apply' = The bot automatically switches between its "compute" and "memory" model depending on the query asked
   - Empty SQL Database for training the bot with queries and for the memory model
 * The ask() method also requires passing in two parameters:
@@ -34,10 +34,9 @@ Whether you're building a student support bot, a domain-specific assistant, or a
 ```bash
 pip install dynamic-learning-model
 ```
-* ***Python 3.12 or higher is required to use this bot in your program***
+* ***Python 3.12.0 is required to use this bot in your program.***
 
 ('learn' mode [training queries])
-* You can find the training password in the ```__trainingPwd``` variable defined within the DLM.py file
 ```python
 from dlm import DLM
 
