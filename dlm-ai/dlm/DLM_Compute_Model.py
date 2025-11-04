@@ -114,21 +114,15 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
     # if allowed, display the inner thought process
     obj_name = object_intel[1]
     if display_thought:
-        self._DLM__loading_animation(f"It seems that the user wants to compute the {' of a '.join(object_intel)}", 0.5)
+        print(f"It seems that the user wants to compute the {' of a '.join(object_intel)}")
         if height_value is not None:
-            self._DLM__loading_animation(
-                f"* The user has mentioned that the height of the {obj_name} object is {height_value}", 0.4)
+            print(f"* The user has mentioned that the height of the {obj_name} object is {height_value}")
         else:
-            self._DLM__loading_animation(
-                f"* The {object_intel[1]} object has no height associated with it, so moving on", 0.4)
+            print(f"* The {object_intel[1]} object has no height associated with it, so moving on")
         if len(other_values) > 0:
-            self._DLM__loading_animation(
-                f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}",
-                0.4)
+            print(f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}")
         else:
-            self._DLM__loading_animation(
-                f"* No additional numerical values associated with the dimensions of the {obj_name} were given",
-                0.4)
+            print(f"* No additional numerical values associated with the dimensions of the {obj_name} were given")
 
     # Now iterate through the geometric identifier list, find the correct object, and then find its formula, then plug compute
     formula = self._DLM__geometric_calculation_identifiers[obj_name]["formula"]
@@ -212,9 +206,8 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
     if display_thought:
         print(
             f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
-        self._DLM__loading_animation("Let me think about this carefully and break it down so that I can solve it", 0.8)
-        self._DLM__loading_animation(f"I’ve trimmed away any extra words so I’m focusing on \"{filtered_query}\" now",
-                                 0.8)
+        print("Let me think about this carefully and break it down so that I can solve it")
+        print(f"I've trimmed away any extra words so I'm focusing on \"{filtered_query}\" now")
 
     # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
     for ent in doc.ents:
@@ -408,30 +401,22 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
             '=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
         if (not self._DLM__try_compute):
             if display_thought:
-                print(f"{self._DLM__loading_animation('Hmm', 0.8) or '' if display_thought else ''}{'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+                print(f"{'Hmm...' or '' if display_thought else ''}{'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
             self._DLM__try_memory = True
         else:
-            self._DLM__loading_animation('Hmm', 0.8)
+            print("Hmm...")
     else:  # else, the bot needs to explain what it has tokenized
         if display_thought:
-            self._DLM__loading_animation(
-                f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
-                f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}", 0.2)
-            self._DLM__loading_animation(
-                f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
-                f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}",
-                0.2)
+            print(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
+                f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}")
+            print(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
+                f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}")
             if is_geometric_query:
-                self._DLM__loading_animation(f"3.) This is a geometric problem and I have already computed the answer",
-                                         0.2)
+                print(f"3.) This is a geometric problem and I have already computed the answer")
             else:
-                self._DLM__loading_animation(
-                    f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with",
-                    0.2)
-                self._DLM__loading_animation(
-                    f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation",
-                    0.2)
-                self._DLM__loading_animation("Now I have the parts, so let me put it all together and solve", 0.3)
+                print(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with")
+                print(f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation")
+                print("Now I have the parts, so let me put it all together and solve")
 
         # Finally compute it and then give the response (if there is any)
         # move "originally" numbers to the front
@@ -542,9 +527,7 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
                 if source_key and target_key:
                     result = (num0 * self._DLM__units[source_key]) / self._DLM__units[target_key]
                     if display_thought:
-                        self._DLM__loading_animation(
-                            f"I need to take {num0} and multiply it by {self._DLM__units[source_key]}. Finally, I divide by {self._DLM__units[target_key]} and I got my answer",
-                            0.2)
+                        print(f"I need to take {num0} and multiply it by {self._DLM__units[source_key]}. Finally, I divide by {self._DLM__units[target_key]} and I got my answer")
                     expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
                     print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
                     self._DLM__successfully_computed = True
