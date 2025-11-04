@@ -417,7 +417,7 @@ class DLM:
                 confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
             self.__mode = "learn"
             print("\n")
-            self.__loading_animation("Logging in as Trainer", 0.6)
+            print("Logging in as Trainer...")
             print("\n")
         else:
             self.__mode = "apply"
@@ -464,7 +464,7 @@ class DLM:
         print(f"\033[{lines}A", end="")
 
     @staticmethod
-    # loading animation for bot thought process
+    # loading animation for bot thought process (deprecated in favor for readability on production)
     def __loading_animation(user_input, duration):  # no return, void
         for seconds in range(0, 3):
             print(f"{'\033[33m'}\r{user_input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
@@ -615,7 +615,7 @@ class DLM:
                     else:
                         print(
                             f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
-                    self.__loading_animation("Let me think about this carefully", 0.8)
+                    print("Let me think about this carefully...")
 
                     for s in special_start:
                         for u in filtered_query.split():
@@ -636,7 +636,7 @@ class DLM:
                             print(
                                 f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
                         print(
-                            f"{self.__loading_animation("Hmm", 0.8) or ''}{'\033[33m'}I don't think I know the answer.{'\033[0m'}")
+                            f"{'Hmm...' or ''}{'\033[33m'}I don't think I know the answer.{'\033[0m'}")
                         self.__unsure_while_thinking = True
                     else:
                         self.__unsure_while_thinking = False
@@ -648,7 +648,7 @@ class DLM:
                         if spacy_proceed:
                             print(
                                 f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
-                        self.__loading_animation("Let me recall that answer", 0.8)
+                        print("Let me recall that answer...")
             print("\n")
         elif self.__model == "compute":
             perform_advanced_CoT(self, filtered_query, display_thought)
@@ -985,7 +985,7 @@ class DLM:
 
         if self.__try_memory:
             if display_thought:
-                self.__loading_animation(f"Let me put this into my memory model, maybe it wasn't a mathematical query", 0.5)
+                print(f"Let me put this into my memory model, maybe it wasn't a mathematical query...")
             self.__model = "memory"
             self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought)
             self.__try_memory = False
@@ -1031,7 +1031,7 @@ class DLM:
             else:  # only executes when in apply mode and bot cannot find the answer
                 if self.__try_compute:
                     if display_thought:
-                        self.__loading_animation(f"Let me put this into my computation model, maybe it was a mathematical query", 0.5)
+                        print(f"Let me put this into my computation model, maybe it was a mathematical query...")
                     self.__model = "compute"
                     self.__try_compute = True
                     self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
