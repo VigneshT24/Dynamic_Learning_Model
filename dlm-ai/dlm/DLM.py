@@ -647,7 +647,7 @@ class DLM:
                             f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
                         if spacy_proceed:
                             print(
-                                f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there are room for error, we will see.{'\033[0m'}")
+                                f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there is room for error, we will see.{'\033[0m'}")
                         print("Let me recall that answer...")
             print("\n")
         elif self.__model == "compute":
