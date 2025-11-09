@@ -920,12 +920,10 @@ class DLM:
             self.__query = input("Empty input is unacceptable. Please enter something: ")
 
         self.__set_sentiment_tone(self.__query)  # sets global variable sentiment tone
-        while self.__refuse_to_respond:
+        if self.__refuse_to_respond:
             print()
-            self.__query = input(random.choice(self.__refuse_to_respond_statements) + "\nTry again: ")
-            while self.__query is None or self.__query == "":
-                self.__query = input("Empty input is unacceptable. Please enter something: ")
-            self.__set_sentiment_tone(self.__query)
+            print(random.choice(self.__refuse_to_respond_statements))
+            return
 
         # auto model choose using HuggingFace
         if self.__mode != "learn":
