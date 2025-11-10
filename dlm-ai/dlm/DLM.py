@@ -399,7 +399,7 @@ class DLM:
         if mode.lower() == "learn":
             # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
             print(
-                f"\n\n{'\033[31m'}MAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:{'\033[0m'}\n")
+                f"\n\nMAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:\n")
             print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
             print(
                 "*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
@@ -467,7 +467,7 @@ class DLM:
     # loading animation for bot thought process (deprecated in favor for readability on production)
     def __loading_animation(user_input, duration):  # no return, void
         for seconds in range(0, 3):
-            print(f"{'\033[33m'}\r{user_input}{'.' * (seconds + 1)}   {'\033[0m'}", end="", flush=True)
+            print(f"\r{user_input}{'.' * (seconds + 1)}", end="", flush=True)
             time.sleep(duration)
         print("\n")
 
@@ -588,13 +588,13 @@ class DLM:
             print("\nThought Process (Yellow):")
             if filtered_query is None or filtered_query == "":
                 print(
-                    f"{'\033[33m'}I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!{'\033[0m'}")
+                    f"I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!")
             else:
                 sentiment_tone = self.__tone.split()
 
                 if self.__tone != "":
                     print(
-                        f"{'\033[33m'}Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!{'\033[0m'}")
+                        f"Right off the bat, the user seems quite {sentiment_tone[0]} or {sentiment_tone[1]} by their query tone. Hopefully I won't disappoint!")
                 if self.__model == "compute":
                     perform_advanced_CoT(self, filtered_query, display_thought)
                 else:
@@ -611,10 +611,10 @@ class DLM:
 
                     if " ".join(identifier) == "":
                         print(
-                            f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.{'\033[0m'}")
+                            f"The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.")
                     else:
                         print(
-                            f"{'\033[33m'}The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".{'\033[0m'}")
+                            f"The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".")
                     print("Let me think about this carefully...")
 
                     for s in special_start:
@@ -624,30 +624,30 @@ class DLM:
                             if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (
                                     s_input.similarity(u_input) > 0.60):
                                 print(
-                                    f"{'\033[33m'}It seems like they want a {s} of \"{" ".join(identifier).title()}\".{'\033[0m'}")
+                                    f"It seems like they want a {s} of \"{" ".join(identifier).title()}\".")
 
                     self.__semantic_similarity(self.__special_stripped_query, best_match_question)
                     spacy_proceed = self.__nlp_similarity_value is not None
                     if (best_match_answer is None) or (
                             highest_similarity < 0.65 and (spacy_proceed and self.__nlp_similarity_value < 0.85)):
                         print(
-                            f"{'\033[33m'}The closest match is only {int(highest_similarity * 100)}% similar when I used sequence matching.{'\033[0m'}")
+                            f"The closest match is only {int(highest_similarity * 100)}% similar when I used sequence matching.")
                         if spacy_proceed:
                             print(
-                                f"{'\033[33m'}Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.{'\033[0m'}")
+                                f"Furthermore, an in-depth vector analysis revealed a similarity percentage of {int(self.__nlp_similarity_value * 100)}%.")
                         print(
-                            f"{'Hmm...' or ''}{'\033[33m'}I don't think I know the answer.{'\033[0m'}")
+                            f"{'Hmm...' or ''}I don't think I know the answer.")
                         self.__unsure_while_thinking = True
                     else:
                         self.__unsure_while_thinking = False
                         DB_identifier = get_specific_question(self, best_match_answer)
                         print(
-                            f"{'\033[33m'}Yes! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
+                            f"Yes! I do remember learning about \"{DB_identifier}\" and I might have the right answer!")
                         print(
                             f"This is because when I did a sequence similarity calculation to one of the closest match in my database, I found it to be {int(highest_similarity * 100)}% similar.")
                         if spacy_proceed:
                             print(
-                                f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there is room for error, we will see.{'\033[0m'}")
+                                f"Additionally, doing a more in-depth vector NLP analysis resulted in {int(self.__nlp_similarity_value * 100)}% similarity. Although there is room for error, we will see.")
                         print("Let me recall that answer...")
             print("\n")
         elif self.__model == "compute":
@@ -669,15 +669,13 @@ class DLM:
             - Gracefully handles unrecognized categories or missing data.
         """
         identifier = get_category(self, best_match_question)
-        BLUE = '\033[34m'
-        RESET = '\033[0m'
 
         if identifier is None:
             print("Sorry, I encountered an error on my end. Please try again later.")
             return
 
         if identifier == "generic":
-            print(f"\n{BLUE}{best_match_answer}{RESET}\n")
+            print(f"\n{best_match_answer}\n")
 
         elif identifier == "yesno":
             affirmative_templates = [
@@ -741,7 +739,7 @@ class DLM:
                 else:
                     best_match_answer = best_match_answer.replace("yes ", "", 1)
             response = template.format(best_match_answer)
-            print(f"\n{BLUE}{response}{RESET}\n")
+            print(f"\n{response}\n")
 
         elif identifier == "process":  # when training, make sure there are only 3 steps for "process"
             templates = [
@@ -758,7 +756,7 @@ class DLM:
             ]
             steps = best_match_answer.split("; ")  # steps must be separated by a semicolon
             response = random.choice(templates).format(*steps[:3])
-            print(f"\n{BLUE}{response}{RESET}\n")
+            print(f"\n{response}\n")
 
         elif identifier == "definition":
             # extract just the term by filtering out common definition triggers
@@ -790,7 +788,7 @@ class DLM:
                 "You can think of \"{0}\" as {1}"
             ]
             response = random.choice(templates).format(term, best_match_answer)
-            print(f"\n{BLUE}{response}{RESET}\n")
+            print(f"\n{response}\n")
 
         elif identifier == "deadline":
             raw = best_match_question
@@ -823,7 +821,7 @@ class DLM:
                 "The cutoff for \"{0}\" is {1}"
             ]
             response = random.choice(templates).format(term, best_match_answer)
-            print(f"\n{BLUE}{response}{RESET}\n")
+            print(f"\n{response}\n")
 
         elif identifier == "location":
             templates = [
@@ -844,7 +842,7 @@ class DLM:
             ]
             best_match_answer = best_match_answer.lower()
             response = random.choice(templates).format(best_match_answer)
-            print(f"\n{BLUE}{response}{RESET}\n")
+            print(f"\n{response}\n")
 
         elif identifier == "eligibility":
             templates = [
@@ -866,7 +864,7 @@ class DLM:
             ]
             best_match_answer = best_match_answer.lower()
             response = random.choice(templates).format(best_match_answer)
-            print(f"\n{BLUE}{response}{RESET}\n")
+            print(f"\n{response}\n")
 
         else:
             print("Cannot retrieve and generate response due to data in unfamiliar category. Please try again later.")
@@ -1035,10 +1033,10 @@ class DLM:
                     self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
                                             display_thought)
                     if not self.__successfully_computed:
-                        print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+                        print(f"{random.choice(self.__fallback_responses)}")
                         self.__try_compute = False
                         self.__successfully_computed = False
                 else:
-                    print(f"{'\033[34m'}{random.choice(self.__fallback_responses)}{'\033[0m'}")
+                    print(f"{random.choice(self.__fallback_responses)}")
                     self.__try_compute = False
                     self.__try_memory = False
