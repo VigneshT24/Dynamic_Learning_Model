@@ -164,10 +164,10 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
     except Exception as e:
         if display_thought:
             print(
-                f"{'\033[33m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
+                f"Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values")
         else:
             print(
-                f"{'\033[34m'}Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values{'\033[0m'}")
+                f"Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values")
         return None
 
 
@@ -205,7 +205,7 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
 
     if display_thought:
         print(
-            f"{'\033[33m'}I am presented with a more involved query asking me to do some form of computation{'\033[0m'}")
+            f"I am presented with a more involved query asking me to do some form of computation")
         print("Let me think about this carefully and break it down so that I can solve it")
         print(f"I've trimmed away any extra words so I'm focusing on \"{filtered_query}\" now")
 
@@ -401,7 +401,7 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
             '=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
         if (not self._DLM__try_compute):
             if display_thought:
-                print(f"{'Hmm...' or '' if display_thought else ''}{'\033[33m'}It looks like some essential details are missing, so I can’t complete this calculation right now.{'\033[0m'}")
+                print(f"{'Hmm...' or '' if display_thought else ''}It looks like some essential details are missing, so I can't complete this calculation right now.")
             self._DLM__try_memory = True
         else:
             print("Hmm...")
@@ -451,7 +451,7 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
 
         # geometric problem
         if is_geometric_query:
-            print(f"{'\033[34m'}Geometric Answer: {geometric_ans}{'\033[0m'}")
+            print(f"Geometric Answer: {geometric_ans}")
             self._DLM__successfully_computed = True
         # conversion problem
         elif len(num_mentioned) == 1 and len(operands_mentioned) == 1:
@@ -529,12 +529,12 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
                     if display_thought:
                         print(f"I need to take {num0} and multiply it by {self._DLM__units[source_key]}. Finally, I divide by {self._DLM__units[target_key]} and I got my answer")
                     expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
-                    print(f"{'\033[34m'}Conversion Answer: {expr} {'\033[0m'}")
+                    print(f"Conversion Answer: {expr}")
                     self._DLM__successfully_computed = True
                 else:
-                    print(f"{'\033[33m'}Could not identify both source and target units.{'\033[0m'}")
+                    print(f"Could not identify both source and target units.")
             except SyntaxError:
-                print("\033[33mOops! I still mix up conversions and arithmetic sometimes. Working on it!\033[0m")
+                print("Oops! I still mix up conversions and arithmetic sometimes. Working on it!")
         # regular arithmetic operations
         elif len(num_mentioned) >= 2 and (
                 len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
@@ -555,15 +555,15 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
                 if "average" in filtered_query.lower():
                     expr = "(" + expr + ") / " + str(len(num_mentioned))
                     result /= len(num_mentioned)
-                print(f"{'\033[34m'}Arithmetic Answer: {expr} = {result}{'\033[0m'}")
+                print(f"Arithmetic Answer: {expr} = {result}")
                 self._DLM__successfully_computed = True
             except SyntaxError:
                 print(
-                    f"{'\033[34mAh'}, something about that stumped me. I’ll need to learn more to handle it properly.{'\033[0m'}")
+                    f"Something about that stumped me. I'll need to learn more to handle it properly.")
         else:
             self._DLM__successfully_computed = False
-            print(f"{'\033[34m'}{random.choice(self._DLM__fallback_responses)}{'\033[0m'}")
+            print(f"{random.choice(self._DLM__fallback_responses)}")
             print(
-                f"{'\033[34m'}However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.{'\033[0m'}")
+                f"However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.")
             print(
-                f"{'\033[34m'}That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?{'\033[0m'}")
+                f"That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?")
