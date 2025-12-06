@@ -246,7 +246,7 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
     tokens = filtered_query.split()
     lower_tokens = [t.lower() for t in tokens]
 
-    # refactored many sub-parts of code for readability and efficiency
+    # extract height
     new_height_list = set_geometric_height(tokens, lower_tokens)
     if new_height_list is not None:
         height_value = new_height_list[0]
@@ -255,12 +255,16 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
         height_value = None
         height_value_index = None
 
+    # extract other values
     other_values = set_other_geometric_values(tokens, height_value_index)
 
+    # identify object
     object_intel = set_geometric_object_intel(self, lower_tokens)
 
+    # display thought process
     obj_name = display_geometric_inner_thought(object_intel, display_thought, height_value, other_values)
 
+    # compute and return result
     return compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel)
 
 
