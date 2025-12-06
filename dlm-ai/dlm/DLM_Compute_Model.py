@@ -4,34 +4,23 @@ import re
 import nltk
 from word2number import w2n
 
-def geometric_calculation(self, filtered_query, display_thought):  # returns float result or None
+def set_geometric_height(tokens, lower_tokens):
     """
-    Perform geometric problems that will be called inside perform_advanced_CoT.
+    Extract height value and its index from tokenized query.
 
-    Parameters:
-        filtered_query (str): user query that has been filtered to have mostly computational details.
-        display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
+    Searches for 'height' keyword and extracts the numeric value immediately
+    before or after it, converting words to numbers if necessary.
+
+    Args:
+        tokens: Original token list from query
+        lower_tokens: Lowercased version of tokens
 
     Returns:
-        float: The result after computing the geometric calculation.
-
-    Behavior:
-        - Search through query to find specific keywords like 'area' or 'volume'.
-        - Then, search to find shape or object to perform math on like 'triangle' or 'square'.
-        - Find numbers associated with object details and store in appropriate list.
-        - Finally, find appropriate formula with identifiers and plug in and return answer.
-
+        list: [height_value, height_value_index] if found, None otherwise
     """
+    return_list = []
     height_value = None
     height_value_index = None
-    other_values = []
-    object_intel = []
-    common_endings = ["ular", "ish", "al"]  # some people might say "squarish" or "rectangular" etc
-
-    tokens = filtered_query.split()
-    lower_tokens = [t.lower() for t in tokens]
-
-    # set height value number (if exists) to height_value and also its corresponding index
     for idx, token in enumerate(lower_tokens):
         is_similar = difflib.get_close_matches(token, ["height"], n=1, cutoff=0.7)
         if is_similar and is_similar[0] == "height":
@@ -60,8 +49,25 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
                         height_value_index = idx + 1
                         break
                     pass
+    if (height_value is not None and height_value_index is not None):
+        return_list.append(height_value)
+        return_list.append(height_value_index)
+        return return_list
+    else:
+        return None
 
-    # append all other numbers to "other_value" list
+def set_other_geometric_values(tokens, height_value_index):
+    """
+    Extract all numeric values from tokens except the height value.
+
+    Args:
+        tokens: Token list from query
+        height_value_index: Index to skip (the height value position)
+
+    Returns:
+        list: All numeric values found (as floats), excluding height
+    """
+    other_values = []
     for i, token in enumerate(tokens):
         if i == height_value_index:
             continue  # skip the height value itself
@@ -71,8 +77,24 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
         except ValueError:
             if token.replace('.', '', 1).isdigit():
                 other_values.append(float(token))
+    return other_values
 
-    # find the object name and what to compute about the object
+def set_geometric_object_intel(self, lower_tokens):
+    """
+    Identify geometric shape and calculation type from query tokens.
+
+    Uses fuzzy matching on bigrams and uni grams to detect shapes (e.g.,
+    'triangle', 'rectangular prism') and operation keywords (e.g., 'area',
+    'volume'). Handles common word endings like 'ular', 'ish', 'al'.
+
+    Args:
+        lower_tokens: Lowercased token list from query
+
+    Returns:
+        list: Keywords describing the operation and shape (e.g., ['area', 'triangle'])
+    """
+    object_intel = []
+    common_endings = ["ular", "ish", "al"]  # some people might say "squarish" or "rectangular" etc
     bigrams = [" ".join([lower_tokens[i], lower_tokens[i + 1]]) for i in range(len(lower_tokens) - 1)]
     end_check = False
 
@@ -110,8 +132,24 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
                     break
             if end_check:
                 break
+    return object_intel
 
-    # if allowed, display the inner thought process
+def display_geometric_inner_thought(object_intel, display_thought, height_value, other_values):
+    """
+    Print the bot's reasoning process for geometric calculations.
+
+    Displays identified shape, calculation type, height value, and other
+    dimensions if display_thought is True.
+
+    Args:
+        object_intel: List containing calculation type and shape name
+        display_thought: Whether to print the thought process
+        height_value: Extracted height value or None
+        other_values: List of additional numeric dimensions
+
+    Returns:
+        str: The object name from object_intel[1]
+    """
     obj_name = object_intel[1]
     if display_thought:
         print(f"It seems that the user wants to compute the {' of a '.join(object_intel)}")
@@ -123,8 +161,25 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
             print(f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}")
         else:
             print(f"* No additional numerical values associated with the dimensions of the {obj_name} were given")
+    return obj_name
 
-    # Now iterate through the geometric identifier list, find the correct object, and then find its formula, then plug compute
+def compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel):
+    """
+    Calculate geometric result using identified shape's formula.
+
+    Maps extracted values to formula parameters, handles special cases like
+    'side' parameters and 'other' multi-value parameters, then computes the result.
+
+    Args:
+        obj_name: Name of geometric shape
+        height_value: Height dimension or None
+        other_values: Additional numeric dimensions
+        display_thought: Whether to print error messages
+        object_intel: List with calculation type and shape for error reporting
+
+    Returns:
+        float: Calculated result rounded to 4 decimals, or None if computation fails
+    """
     formula = self._DLM__geometric_calculation_identifiers[obj_name]["formula"]
     params = self._DLM__geometric_calculation_identifiers[obj_name]["params"]
 
@@ -169,6 +224,44 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
             print(
                 f"Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values")
         return None
+
+def geometric_calculation(self, filtered_query, display_thought):  # returns float result or None
+    """
+    Perform geometric problems that will be called inside perform_advanced_CoT.
+
+    Parameters:
+        filtered_query (str): user query that has been filtered to have mostly computational details.
+        display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
+
+    Returns:
+        float: The result after computing the geometric calculation.
+
+    Behavior:
+        - Search through query to find specific keywords like 'area' or 'volume'.
+        - Then, search to find shape or object to perform math on like 'triangle' or 'square'.
+        - Find numbers associated with object details and store in appropriate list.
+        - Finally, find appropriate formula with identifiers and plug in and return answer.
+
+    """
+    tokens = filtered_query.split()
+    lower_tokens = [t.lower() for t in tokens]
+
+    # refactored many sub-parts of code for readability and efficiency
+    new_height_list = set_geometric_height(tokens, lower_tokens)
+    if new_height_list is not None:
+        height_value = new_height_list[0]
+        height_value_index = new_height_list[1]
+    else:
+        height_value = None
+        height_value_index = None
+
+    other_values = set_other_geometric_values(tokens, height_value_index)
+
+    object_intel = set_geometric_object_intel(self, lower_tokens)
+
+    obj_name = display_geometric_inner_thought(object_intel, display_thought, height_value, other_values)
+
+    return compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel)
 
 
 def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, void
