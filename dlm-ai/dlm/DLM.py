@@ -585,7 +585,7 @@ class DLM:
             - Uses colorized terminal output and a loading animation to simulate reflective thought.
         """
         if display_thought:
-            print("\nThought Process (Yellow):")
+            print("\nThought Process:")
             if filtered_query is None or filtered_query == "":
                 print(
                     f"I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!")
