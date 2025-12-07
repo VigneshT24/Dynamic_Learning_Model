@@ -268,25 +268,9 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
     return compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel)
 
 
-def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, void
-    """
-    Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
-
-    Parameters:
-        filtered_query (str): The cleaned user input, expected to be a math or logic-based question.
-        display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
-
-    Behavior:
-        - Simulates step-by-step reasoning to solve arithmetic word problems without relying on memorized answers.
-        - Extracts entities including person names, items, numbers, and operations using SpaCy, NLTK, and regex.
-        - Detects arithmetic operations via lexical and semantic matching with predefined keyword sets.
-        - Handles both numeric digits and text-based numbers (e.g., "three", "double").
-        - Supports simple arithmetic expressions and unit conversions (e.g., inches to cm).
-        - Prints the interpreted steps, logical inferences (if display_thought is True), and the final computed result with contextual explanations.
-        - Displays fallback messages if the query is incomplete or too ambiguous to solve.
-    """
+def initialize_cot_variables():
+    """Initialize all variables needed for Chain-of-Thought reasoning."""
     persons_mentioned = []
-    items_mentioned = []
     keywords_mentioned = []
     num_mentioned = []
     operands_mentioned = []
@@ -297,16 +281,11 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
         "multiply", "times", "product", "received", "pick", "paid", "gave", "pay",
         "split", "shared equally", "equal parts", "equal groups", "ratio", "quotient", "out of", "into"
     ]
-    filtered_query = filtered_query.title()
-    doc = self._DLM__nlp(filtered_query)
+    return persons_mentioned, keywords_mentioned, num_mentioned, operands_mentioned, arithmetic_ending_phrases
 
-    if display_thought:
-        print(
-            f"I am presented with a more involved query asking me to do some form of computation")
-        print("Let me think about this carefully and break it down so that I can solve it")
-        print(f"I've trimmed away any extra words so I'm focusing on \"{filtered_query}\" now")
-
+def pick_out_names(self, doc, persons_mentioned, filtered_query):
     # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
+    items_mentioned = []
     for ent in doc.ents:
         if ent.label_ == "PERSON":
             cleaned = re.sub(r'\d+', "", ent.text).strip()
@@ -328,339 +307,472 @@ def perform_advanced_CoT(self, filtered_query, display_thought):  # no return, v
             if cleaned and cleaned not in persons_mentioned:
                 items_mentioned.append(cleaned)
     items_mentioned = set(items_mentioned)
+    return items_mentioned
 
-    tokens_lower = filtered_query.lower().split()
-    last_two = set(tokens_lower[-2:])  # only the final 2 words from filtered input
 
-    # First see if the problem is a geometric problem
+def display_initial_thought(display_thought, filtered_query):
+    """Display initial thought process if requested."""
+    if display_thought:
+        print(f"I am presented with a more involved query asking me to do some form of computation")
+        print("Let me think about this carefully and break it down so that I can solve it")
+        print(f"I've trimmed away any extra words so I'm focusing on \"{filtered_query}\" now")
+
+
+def check_if_geometric_query(self, filtered_query, display_thought):
+    """
+    Check if query is geometric and attempt to solve it.
+
+    Returns:
+        tuple: (is_geometric_query, geometric_ans)
+    """
     words = filtered_query.lower().split()
     geometric_ans = None
-    # checks if the query contains shapes or object to perform possibly formula calculation
+
     geometric_calc = any(
-        difflib.get_close_matches(word, self._DLM__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70) for word
-        in words)
+        difflib.get_close_matches(word, self._DLM__geometric_calculation_identifiers.keys(), n=1, cutoff=0.70)
+        for word in words
+    )
     is_geometric_query = False
 
-    geo_types = set()  # currently supported types of geometric calculations
-
+    geo_types = set()
     for t in self._DLM__geometric_calculation_identifiers:
         shape = self._DLM__geometric_calculation_identifiers[t]["keywords"]
         geo_types.add(shape[0])
+
     if any(difflib.get_close_matches(word, geo_types, n=1, cutoff=0.70) for word in words) and geometric_calc:
         geometric_ans = geometric_calculation(self, filtered_query, display_thought)
         if geometric_ans is not None:
             is_geometric_query = True
-    else:  # Not geometric, so have the bot find all operand indicating keywords
-        found_operand = False
-        for fq in filtered_query.split():
-            fq_l = fq.lower()
-            # If this word is one of the ending phrases and sits among the last five, skip it
-            if fq_l in arithmetic_ending_phrases and fq_l in last_two:
-                continue
-            if fq_l in {"+", "-", "*", "/"}:
-                operands_mentioned.append(fq_l)
-                keywords_mentioned.append(fq_l)
-                continue  # move on to the next token
-            for operand, keywords in self._DLM__computation_identifiers.items():
-                for kw in keywords:
-                    p1 = self._DLM__nlp(kw)
-                    p2 = self._DLM__nlp(fq_l)
-                    word_num_surrounded = re.search(rf'\d+\s*{fq.lower()}\s*\d+', filtered_query.lower())
 
-                    # Direct match or lemma match
-                    if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
-                        keywords_mentioned.append(kw.title())
-                        if kw.lower() == "out of":
-                            if word_num_surrounded:
-                                operands_mentioned.append(operand)
-                                found_operand = True
-                                break  # only break if 'out of' condition is satisfied
-                            continue  # skip adding 'out of' if not surrounded by numbers
-                        else:
+    return is_geometric_query, geometric_ans
+
+
+def extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned, operands_mentioned):
+    """
+    Extract arithmetic operands from the filtered query.
+
+    Modifies keywords_mentioned and operands_mentioned lists in place.
+    """
+    tokens_lower = filtered_query.lower().split()
+    last_two = set(tokens_lower[-2:])
+
+    found_operand = False
+    for fq in filtered_query.split():
+        fq_l = fq.lower()
+
+        if fq_l in arithmetic_ending_phrases and fq_l in last_two:
+            continue
+        if fq_l in {"+", "-", "*", "/"}:
+            operands_mentioned.append(fq_l)
+            keywords_mentioned.append(fq_l)
+            continue
+
+        for operand, keywords in self._DLM__computation_identifiers.items():
+            for kw in keywords:
+                p1 = self._DLM__nlp(kw)
+                p2 = self._DLM__nlp(fq_l)
+                word_num_surrounded = re.search(rf'\d+\s*{fq.lower()}\s*\d+', filtered_query.lower())
+
+                # Direct match or lemma match
+                if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
+                    keywords_mentioned.append(kw.title())
+                    if kw.lower() == "out of":
+                        if word_num_surrounded:
                             operands_mentioned.append(operand)
                             found_operand = True
                             break
-
-                    # Vector + string similarity
-                    if p1.vector_norm != 0 and p2.vector_norm != 0 and (
-                            p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
-                        keywords_mentioned.append(kw.title())
-                        if kw.lower() == "out of":
-                            if word_num_surrounded:
-                                operands_mentioned.append(operand)
-                                found_operand = True
-                                break
-                            continue
-                        else:
-                            operands_mentioned.append(operand)
-                            found_operand = True
-                            break
-
-                    # Fallback: high string similarity
-                    elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
-                        keywords_mentioned.append(kw.title())
-                        if kw.lower() == "out of":
-                            if word_num_surrounded:
-                                operands_mentioned.append(operand)
-                                found_operand = True
-                                break
-                            continue
-                        else:
-                            operands_mentioned.append(operand)
-                            found_operand = True
-                            break
-
-                if found_operand:
-                    found_operand = False
-                    break
-
-        # If no operands were found in the main pass, check ending phrases as a last resort
-        if not operands_mentioned:
-            for fq in filtered_query.split():
-                p_fq = self._DLM__nlp(fq)
-
-                # Replace exact matching with a spaCy similarity check against ending_phrases
-                matched_ep = None
-                for ep in arithmetic_ending_phrases:
-                    p_ep = self._DLM__nlp(ep)
-                    if p_ep.vector_norm != 0 and p_fq.vector_norm != 0 and p_ep.similarity(p_fq) > 0.50:
-                        matched_ep = ep
+                        continue
+                    else:
+                        operands_mentioned.append(operand)
+                        found_operand = True
                         break
 
-                if not matched_ep:
-                    continue
-
-                # Now matched_ep roughly corresponds to an ending phrase; find its operand via spaCy
-                for operand, keywords in self._DLM__computation_identifiers.items():
-                    for kw in keywords:
-                        p_kw = self._DLM__nlp(kw)
-                        if p_kw.vector_norm != 0 and p_fq.vector_norm != 0 and p_kw.similarity(p_fq) > 0.70:
-                            keywords_mentioned.append(kw.title())
+                # Vector + string similarity
+                if p1.vector_norm != 0 and p2.vector_norm != 0 and (
+                        p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
+                    keywords_mentioned.append(kw.title())
+                    if kw.lower() == "out of":
+                        if word_num_surrounded:
                             operands_mentioned.append(operand)
+                            found_operand = True
                             break
-                    if operands_mentioned:
+                        continue
+                    else:
+                        operands_mentioned.append(operand)
+                        found_operand = True
+                        break
+
+                # Fallback: high string similarity
+                elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
+                    keywords_mentioned.append(kw.title())
+                    if kw.lower() == "out of":
+                        if word_num_surrounded:
+                            operands_mentioned.append(operand)
+                            found_operand = True
+                            break
+                        continue
+                    else:
+                        operands_mentioned.append(operand)
+                        found_operand = True
+                        break
+
+            if found_operand:
+                found_operand = False
+                break
+
+
+def extract_operands_from_ending_phrases(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned,
+                                         operands_mentioned):
+    """
+    Fallback: extract operands from ending phrases if none found in main pass.
+
+    Modifies keywords_mentioned and operands_mentioned lists in place.
+    """
+    if not operands_mentioned:
+        for fq in filtered_query.split():
+            p_fq = self._DLM__nlp(fq)
+
+            matched_ep = None
+            for ep in arithmetic_ending_phrases:
+                p_ep = self._DLM__nlp(ep)
+                if p_ep.vector_norm != 0 and p_fq.vector_norm != 0 and p_ep.similarity(p_fq) > 0.50:
+                    matched_ep = ep
+                    break
+
+            if not matched_ep:
+                continue
+
+            for operand, keywords in self._DLM__computation_identifiers.items():
+                for kw in keywords:
+                    p_kw = self._DLM__nlp(kw)
+                    if p_kw.vector_norm != 0 and p_fq.vector_norm != 0 and p_kw.similarity(p_fq) > 0.70:
+                        keywords_mentioned.append(kw.title())
+                        operands_mentioned.append(operand)
                         break
                 if operands_mentioned:
                     break
-        keywords_mentioned = list(dict.fromkeys(keywords_mentioned))
+            if operands_mentioned:
+                break
 
-        # Now have the bot pick out numbers (in order)
-        # additionally, "double", "triple", "quadruple", "half", "an" and "a" also count as numbers, in addition to text numbers (e.g. "three")
-        text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
-        a_an_detected = False
 
-        # Combined regex and word match pass
-        tokens = filtered_query.lower().split()
-        for token in tokens:
-            # Check if it's a digit-based number (e.g. 600, 20.5)
-            if re.fullmatch(r"\d+(\.\d+)?", token):
-                num_mentioned.append(str(float(token)))
-                continue
+def extract_numbers(self, filtered_query, operands_mentioned, num_mentioned):
+    """
+    Extract all numbers from the filtered query.
 
-            # Check if it's a word-based number (e.g. 'three', 'double', 'a')
-            try:
-                num = w2n.word_to_num(token)
-                num_mentioned.append(str(float(num)))
-                continue
-            except ValueError:
-                pass  # not a word2num-recognized word
+    Modifies num_mentioned list in place.
+    """
+    text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
+    a_an_detected = False
 
-            # Check if it's in our custom list (a, an, half, double, etc.)
-            for t in text_nums:
-                p1 = self._DLM__nlp(token)
-                p2 = self._DLM__nlp(t)
-                if p1[0].lemma_ == p2[0].lemma_:
-                    if t == "double":
-                        num_mentioned.append(float(2).__str__())
-                    elif t == "triple":
-                        num_mentioned.append(float(3).__str__())
-                    elif t == "half":
-                        num_mentioned.append(float(0.5).__str__())
-                    elif ("=" in operands_mentioned) and (t == "a" or t == "an"):
-                        a_an_detected = True
-                        num_mentioned.append(float(1.0).__str__())
-                    elif t == "quadruple":
-                        num_mentioned.append(float(4).__str__())
+    tokens = filtered_query.lower().split()
+    for token in tokens:
+        if re.fullmatch(r"\d+(\.\d+)?", token):
+            num_mentioned.append(str(float(token)))
+            continue
 
-        # Remove "1.0" if 'a'/'an' was used in an invalid context (like not following "=")
-        if a_an_detected and (num_mentioned.count("1.0") > 1 or len(num_mentioned) > 1):
-            num_mentioned.remove("1.0")
+        try:
+            num = w2n.word_to_num(token)
+            num_mentioned.append(str(float(num)))
+            continue
+        except ValueError:
+            pass
 
-        if ('=' in operands_mentioned) and (len(num_mentioned) < 2):
-            operands_mentioned.clear()
-            operands_mentioned.append('=')
-        else:
-            if '=' in operands_mentioned:
-                operands_mentioned = [op for op in operands_mentioned if op != '=']
+        for t in text_nums:
+            p1 = self._DLM__nlp(token)
+            p2 = self._DLM__nlp(t)
+            if p1[0].lemma_ == p2[0].lemma_:
+                if t == "double":
+                    num_mentioned.append(float(2).__str__())
+                elif t == "triple":
+                    num_mentioned.append(float(3).__str__())
+                elif t == "half":
+                    num_mentioned.append(float(0.5).__str__())
+                elif ("=" in operands_mentioned) and (t == "a" or t == "an"):
+                    a_an_detected = True
+                    num_mentioned.append(float(1.0).__str__())
+                elif t == "quadruple":
+                    num_mentioned.append(float(4).__str__())
 
-    # verify and possibly print thoughts
+    if a_an_detected and (num_mentioned.count("1.0") > 1 or len(num_mentioned) > 1):
+        num_mentioned.remove("1.0")
+
+
+def handle_equals_operand(operands_mentioned, num_mentioned):
+    """
+    Handle special case for equals operand.
+
+    Modifies operands_mentioned list in place.
+    """
+    if ('=' in operands_mentioned) and (len(num_mentioned) < 2):
+        operands_mentioned.clear()
+        operands_mentioned.append('=')
+    else:
+        if '=' in operands_mentioned:
+            operands_mentioned[:] = [op for op in operands_mentioned if op != '=']
+
+
+def check_missing_components(self, is_geometric_query, num_mentioned, operands_mentioned, display_thought):
+    """
+    Check if essential components are missing for computation.
+
+    Returns:
+        bool: True if components are missing, False otherwise
+    """
     if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or (
-            '=' not in operands_mentioned and num_mentioned.__len__() < 2)):  # don't compute if parts are missing
+            '=' not in operands_mentioned and num_mentioned.__len__() < 2)):
         if (not self._DLM__try_compute):
             if display_thought:
-                print(f"{'Hmm...' or '' if display_thought else ''}It looks like some essential details are missing, so I can't complete this calculation right now.")
+                print(
+                    f"{'Hmm...' or '' if display_thought else ''}It looks like some essential details are missing, so I can't complete this calculation right now.")
             self._DLM__try_memory = True
         else:
             print("Hmm...")
-    else:  # else, the bot needs to explain what it has tokenized
-        if display_thought:
-            print(f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
-                f"{'they’re likely key to this problem' if persons_mentioned.__len__() >= 1 else 'moving on'}")
-            print(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
-                f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}")
-            if is_geometric_query:
-                print(f"3.) This is a geometric problem and I have already computed the answer")
-            else:
-                print(f"3.) I’ve also identified the numbers {' and '.join(num_mentioned)} that I need to compute with")
-                print(f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I’ll use that to guide my calculation")
-                print("Now I have the parts, so let me put it all together and solve")
+        return True
+    return False
 
-        # Finally compute it and then give the response (if there is any)
-        # move "originally" numbers to the front
-        indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had",
-                      "savings", "saving", "of"}
 
-        tokens = filtered_query.split()
-        temp = None
-        # lowercase copy for matching
-        lower_tokens = [t.lower() for t in tokens]
-
-        for idx, token in enumerate(lower_tokens):
-            if token in indicators:
-                # check token before
-                if idx > 0 and token != "of":
-                    candidate = lower_tokens[idx - 1]
-                    try:
-                        temp = (w2n.word_to_num(candidate))
-                    except ValueError:
-                        pass
-                # check token after
-                if idx < len(tokens) - 1:
-                    candidate = lower_tokens[idx + 1]
-                    try:
-                        temp = (w2n.word_to_num(candidate))
-                    except ValueError:
-                        pass
-        if temp is not None:
-            if str(float(temp)) in num_mentioned:
-                num_mentioned.remove(str(float(temp)))
-            num_mentioned.insert(0, str(float(temp)))
-
-        # geometric problem
+def display_extracted_components(display_thought, persons_mentioned, items_mentioned, is_geometric_query, num_mentioned,
+                                 keywords_mentioned, operands_mentioned):
+    """Display all extracted components if thought display is enabled."""
+    if display_thought:
+        print(
+            f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
+            f"{"they're likely key to this problem" if persons_mentioned.__len__() >= 1 else 'moving on'}")
+        print(f"2.) Moreover, I see {', '.join(items_mentioned) if items_mentioned.__len__() >= 1 else 'no items'} mentioned as proper nouns; "
+            f"{'this might be a key thing to this problem' if items_mentioned.__len__() >= 1 else 'moving on'}")
         if is_geometric_query:
-            print(f"Geometric Answer: {geometric_ans}")
-            self._DLM__successfully_computed = True
-        # conversion problem
-        elif len(num_mentioned) == 1 and len(operands_mentioned) == 1:
-            try:
-                tokens = filtered_query.lower().split()
-                num0 = float(num_mentioned[0])
-                num_idx = None
-
-                # redefine text_nums to be a dictionary instead
-                text_nums = {
-                    "a": 1.0,
-                    "an": 1.0,
-                    "half": 0.5,
-                    "double": 2.0,
-                    "triple": 3.0,
-                    "quadruple": 4.0
-                }
-
-                # Find index of the numeric token (either digit or w2n‐convertible)
-                for i, tok in enumerate(tokens):
-                    lower_tok = tok.lower()
-
-                    # Check if tok is one of the special words
-                    if lower_tok in text_nums:
-                        if text_nums[lower_tok] == num0:
-                            num_idx = i
-                            break
-                        else:
-                            continue  # skip parsing this token further
-
-                    # Otherwise try parsing as a standard float
-                    try:
-                        if float(tok) == num0:
-                            num_idx = i
-                            break
-                    except ValueError:
-                        # If that fails, try converting via w2n.word_to_num
-                        try:
-                            if float(w2n.word_to_num(tok)) == num0:
-                                num_idx = i
-                                break
-                        except ValueError:
-                            continue
-
-                source_key = None
-                target_key = None
-
-                # Look for the first unit immediately after the number for source key
-                if num_idx is not None:
-                    for tok in tokens[num_idx + 1:]:
-                        for key, val in self._DLM__units.items():
-                            p1 = self._DLM__nlp(tok)
-                            p2 = self._DLM__nlp(key)
-                            if p1[0].lemma_ == p2[0].lemma_:
-                                source_key = key
-                                break
-                        if source_key:
-                            break
-
-                # 3) Now scan the entire sentence for the target-key
-                for tok in tokens:
-                    for key, val in self._DLM__units.items():
-                        p1 = self._DLM__nlp(tok)
-                        p2 = self._DLM__nlp(key)
-                        p3 = self._DLM__nlp(source_key)
-                        if (p1[0].lemma_ == p2[0].lemma_) and (p2[0].lemma_ != p3[0].lemma_):
-                            target_key = key
-                            break
-                    if target_key:
-                        break
-
-                # 4) Compute only if we have both source_key and target_key
-                if source_key and target_key:
-                    result = (num0 * self._DLM__units[source_key]) / self._DLM__units[target_key]
-                    if display_thought:
-                        print(f"I need to take {num0} and multiply it by {self._DLM__units[source_key]}. Finally, I divide by {self._DLM__units[target_key]} and I got my answer")
-                    expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
-                    print(f"Conversion Answer: {expr}")
-                    self._DLM__successfully_computed = True
-                else:
-                    print(f"Could not identify both source and target units.")
-            except SyntaxError:
-                print("Oops! I still mix up conversions and arithmetic sometimes. Working on it!")
-        # regular arithmetic operations
-        elif len(num_mentioned) >= 2 and (
-                len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
-            # Build a string like "n0 op0 n1 op1 n2 ... op_{N-2} n_{N-1}"
-            parts = []
-            for i, num in enumerate(num_mentioned):
-                parts.append(str(num))
-                if i < (len(num_mentioned) - 1) and ("average" in filtered_query.lower()):
-                    parts.append("+")
-                elif i < (len(num_mentioned) - 1) and (len(operands_mentioned) == 1):
-                    parts.append(operands_mentioned[0])
-                elif i < len(operands_mentioned):
-                    parts.append(operands_mentioned[i])
-            expr = " ".join(parts)
-
-            try:
-                result = eval(expr)
-                if "average" in filtered_query.lower():
-                    expr = "(" + expr + ") / " + str(len(num_mentioned))
-                    result /= len(num_mentioned)
-                print(f"Arithmetic Answer: {expr} = {result}")
-                self._DLM__successfully_computed = True
-            except SyntaxError:
-                print(
-                    f"Something about that stumped me. I'll need to learn more to handle it properly.")
+            print(f"3.) This is a geometric problem and I have already computed the answer")
         else:
-            self._DLM__successfully_computed = False
-            print(f"{random.choice(self._DLM__fallback_responses)}")
+            print(f"3.) I've also identified the numbers {' and '.join(num_mentioned)} that I need to compute with")
             print(
-                f"However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.")
-            print(
-                f"That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?")
+                f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I'll use that to guide my calculation")
+            print("Now I have the parts, so let me put it all together and solve")
+
+
+def reorder_numbers_by_indicators(filtered_query, num_mentioned):
+    """
+    Move 'original' numbers to the front of the list.
+
+    Modifies num_mentioned list in place.
+    """
+    indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had",
+                  "savings", "saving", "of"}
+
+    tokens = filtered_query.split()
+    temp = None
+    lower_tokens = [t.lower() for t in tokens]
+
+    for idx, token in enumerate(lower_tokens):
+        if token in indicators:
+            if idx > 0 and token != "of":
+                candidate = lower_tokens[idx - 1]
+                try:
+                    temp = (w2n.word_to_num(candidate))
+                except ValueError:
+                    pass
+            if idx < len(tokens) - 1:
+                candidate = lower_tokens[idx + 1]
+                try:
+                    temp = (w2n.word_to_num(candidate))
+                except ValueError:
+                    pass
+
+    if temp is not None:
+        if str(float(temp)) in num_mentioned:
+            num_mentioned.remove(str(float(temp)))
+        num_mentioned.insert(0, str(float(temp)))
+
+
+def compute_geometric_problem(self, geometric_ans):
+    """
+    Display geometric problem result.
+
+    Modifies self._DLM__successfully_computed.
+    """
+    print(f"Geometric Answer: {geometric_ans}")
+    self._DLM__successfully_computed = True
+
+
+def compute_conversion_problem(self, filtered_query, num_mentioned, operands_mentioned, display_thought):
+    """
+    Handle unit conversion problems.
+
+    Modifies self._DLM__successfully_computed.
+    """
+    try:
+        tokens = filtered_query.lower().split()
+        num0 = float(num_mentioned[0])
+        num_idx = None
+
+        text_nums = {
+            "a": 1.0,
+            "an": 1.0,
+            "half": 0.5,
+            "double": 2.0,
+            "triple": 3.0,
+            "quadruple": 4.0
+        }
+
+        for i, tok in enumerate(tokens):
+            lower_tok = tok.lower()
+
+            if lower_tok in text_nums:
+                if text_nums[lower_tok] == num0:
+                    num_idx = i
+                    break
+                else:
+                    continue
+
+            try:
+                if float(tok) == num0:
+                    num_idx = i
+                    break
+            except ValueError:
+                try:
+                    if float(w2n.word_to_num(tok)) == num0:
+                        num_idx = i
+                        break
+                except ValueError:
+                    continue
+
+        source_key = None
+        target_key = None
+
+        if num_idx is not None:
+            for tok in tokens[num_idx + 1:]:
+                for key, val in self._DLM__units.items():
+                    p1 = self._DLM__nlp(tok)
+                    p2 = self._DLM__nlp(key)
+                    if p1[0].lemma_ == p2[0].lemma_:
+                        source_key = key
+                        break
+                if source_key:
+                    break
+
+        for tok in tokens:
+            for key, val in self._DLM__units.items():
+                p1 = self._DLM__nlp(tok)
+                p2 = self._DLM__nlp(key)
+                p3 = self._DLM__nlp(source_key)
+                if (p1[0].lemma_ == p2[0].lemma_) and (p2[0].lemma_ != p3[0].lemma_):
+                    target_key = key
+                    break
+            if target_key:
+                break
+
+        if source_key and target_key:
+            result = (num0 * self._DLM__units[source_key]) / self._DLM__units[target_key]
+            if display_thought:
+                print(
+                    f"I need to take {num0} and multiply it by {self._DLM__units[source_key]}. Finally, I divide by {self._DLM__units[target_key]} and I got my answer")
+            expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
+            print(f"Conversion Answer: {expr}")
+            self._DLM__successfully_computed = True
+        else:
+            print(f"Could not identify both source and target units.")
+    except SyntaxError:
+        print("Oops! I still mix up conversions and arithmetic sometimes. Working on it!")
+
+
+def compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_mentioned):
+    """
+    Handle regular arithmetic operations.
+
+    Modifies self._DLM__successfully_computed.
+    """
+    parts = []
+    for i, num in enumerate(num_mentioned):
+        parts.append(str(num))
+        if i < (len(num_mentioned) - 1) and ("average" in filtered_query.lower()):
+            parts.append("+")
+        elif i < (len(num_mentioned) - 1) and (len(operands_mentioned) == 1):
+            parts.append(operands_mentioned[0])
+        elif i < len(operands_mentioned):
+            parts.append(operands_mentioned[i])
+    expr = " ".join(parts)
+
+    try:
+        result = eval(expr)
+        if "average" in filtered_query.lower():
+            expr = "(" + expr + ") / " + str(len(num_mentioned))
+            result /= len(num_mentioned)
+        print(f"Arithmetic Answer: {expr} = {result}")
+        self._DLM__successfully_computed = True
+    except SyntaxError:
+        print(f"Something about that stumped me. I'll need to learn more to handle it properly.")
+
+
+def handle_computation_failure(self, keywords_mentioned):
+    """
+    Handle cases where computation cannot be completed.
+
+    Modifies self._DLM__successfully_computed.
+    """
+    self._DLM__successfully_computed = False
+    print(f"{random.choice(self._DLM__fallback_responses)}")
+    print(
+        f"However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.")
+    print(f"That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?")
+
+
+def perform_advanced_CoT(self, filtered_query, display_thought):
+    """
+    Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
+
+    Parameters:
+        filtered_query (str): The cleaned user input, expected to be a math or logic-based question.
+        display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
+
+    Behavior:
+        - Simulates step-by-step reasoning to solve arithmetic word problems without relying on memorized answers.
+        - Extracts entities including person names, items, numbers, and operations using SpaCy, NLTK, and regex.
+        - Detects arithmetic operations via lexical and semantic matching with predefined keyword sets.
+        - Handles both numeric digits and text-based numbers (e.g., "three", "double").
+        - Supports simple arithmetic expressions and unit conversions (e.g., inches to cm).
+        - Prints the interpreted steps, logical inferences (if display_thought is True), and the final computed result with contextual explanations.
+        - Displays fallback messages if the query is incomplete or too ambiguous to solve.
+    """
+    # Initialize variables
+    persons_mentioned, keywords_mentioned, num_mentioned, operands_mentioned, arithmetic_ending_phrases = initialize_cot_variables()
+
+    filtered_query = filtered_query.title()
+    doc = self._DLM__nlp(filtered_query)
+
+    # Display initial thought
+    display_initial_thought(display_thought, filtered_query)
+
+    # Extract person names and items
+    items_mentioned = pick_out_names(self, doc, persons_mentioned, filtered_query)
+
+    # Check if geometric query
+    is_geometric_query, geometric_ans = check_if_geometric_query(self, filtered_query, display_thought)
+
+    # If not geometric, extract operands and numbers
+    if not is_geometric_query:
+        extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned, operands_mentioned)
+        extract_operands_from_ending_phrases(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned, operands_mentioned)
+        keywords_mentioned[:] = list(dict.fromkeys(keywords_mentioned))
+        extract_numbers(self, filtered_query, operands_mentioned, num_mentioned)
+        handle_equals_operand(operands_mentioned, num_mentioned)
+
+    # Check if components are missing
+    if check_missing_components(self, is_geometric_query, num_mentioned, operands_mentioned, display_thought):
+        return
+
+    # Display extracted components
+    display_extracted_components(display_thought, persons_mentioned, items_mentioned, is_geometric_query, num_mentioned,
+                                 keywords_mentioned, operands_mentioned)
+
+    # Reorder numbers by indicators
+    reorder_numbers_by_indicators(filtered_query, num_mentioned)
+
+    # Compute based on problem type
+    if is_geometric_query:
+        compute_geometric_problem(self, geometric_ans)
+    elif len(num_mentioned) == 1 and len(operands_mentioned) == 1:
+        compute_conversion_problem(self, filtered_query, num_mentioned, operands_mentioned, display_thought)
+    elif len(num_mentioned) >= 2 and (
+            len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
+        compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_mentioned)
+    else:
+        handle_computation_failure(self, keywords_mentioned)
