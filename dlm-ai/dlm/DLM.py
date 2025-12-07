@@ -4,16 +4,21 @@ import random
 import spacy
 import time
 import sqlite3
-from .DLM_Compute_Model import perform_advanced_CoT
-from .DLM_Memory_Model import get_category
-from .DLM_Memory_Model import get_specific_question
-from .DLM_Memory_Model import learn
+from DLM_Compute_Model import perform_advanced_CoT
+from DLM_Memory_Model import get_category
+from DLM_Memory_Model import get_specific_question
+from DLM_Memory_Model import learn
 import math
 from transformers import pipeline
 from better_profanity import profanity
 from nltk.corpus import names
 
 class DLM:
+    # for one-time, shared model loaders so that each object won't load a new model (> 2GB)
+    _shared_nlp = None
+    _shared_hf = None
+    _shared_profanity_loaded = False
+
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
     __expectation = None  # trainer-inputted expected answer to query
@@ -376,13 +381,48 @@ class DLM:
             - Verify login information based on mode.
             - Ensures the required table structure exists (creates if missing).
         """
-        self.__nlp = spacy.load("en_core_web_lg")
-        self.__hf_classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-        profanity.load_censor_words()
+        # lazy load SpaCy
+        if DLM._shared_nlp is None:
+            print("Loading Spacy NLP model... (one-time)")
+            DLM._shared_nlp = spacy.load("en_core_web_lg")
+
+        # lazy Load HuggingFace
+        if DLM._shared_hf is None:
+            print("Loading HuggingFace Classifier... (one-time)")
+            DLM._shared_hf = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+
+        # load profanity filter
+        if not DLM._shared_profanity_loaded:
+            profanity.load_censor_words()
+            DLM._shared_profanity_loaded = True
+
+        self.__nlp = DLM._shared_nlp
+        self.__hf_classifier = DLM._shared_hf
+
         self.__filename = db_filename
         self.__mode = mode
+
+        try:
+            self.__conn = sqlite3.connect(self.__filename, check_same_thread=False)
+            self.__cursor = self.__conn.cursor()
+        except sqlite3.Error as e:
+            print(f"System: Error connecting to database: {e}")
+            self.__conn = None
+            self.__cursor = None
+
         self.__login_verification(self.__mode)
         self.__create_table_if_missing()
+
+    def __del__(self):
+        """
+        Destructor: safely closes the database connection when the object is destroyed.
+        """
+        try:
+            # We check if the connection attribute exists and is not None
+            if hasattr(self, '_DLM__conn') and self.__conn:
+                self.__conn.close()
+        except Exception:
+            pass  # Suppress errors during destruction to prevent noisy exit
 
     def __login_verification(self, mode):  # no return, void
         """
@@ -436,27 +476,28 @@ class DLM:
             - If the table already exists but is missing the 'category' column, the method adds it with a default empty string.
             - Used exclusively within the class constructor to ensure the database schema is properly initialized.
         """
-        conn = sqlite3.connect(self.__filename)
-        c = conn.cursor()
-        # Create table with identifier column if it doesn't exist
-        c.execute("""
-        CREATE TABLE IF NOT EXISTS knowledge_base (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            question    TEXT    NOT NULL UNIQUE,
-            answer      TEXT    NOT NULL,
-            category  TEXT    NOT NULL
-        )
-        """)
-        # If the table existed already without identifier, add it now
-        c.execute("PRAGMA table_info(knowledge_base)")
-        cols = [row[1] for row in c.fetchall()]
+        if not self.__conn:
+            return
+
+        self.__cursor.execute("""
+                CREATE TABLE IF NOT EXISTS knowledge_base (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    question    TEXT    NOT NULL UNIQUE,
+                    answer      TEXT    NOT NULL,
+                    category    TEXT    NOT NULL
+                )
+                """)
+
+        self.__cursor.execute("PRAGMA table_info(knowledge_base)")
+        cols = [row[1] for row in self.__cursor.fetchall()]
+
         if 'category' not in cols:
-            c.execute("""
-            ALTER TABLE knowledge_base
-            ADD COLUMN category TEXT NOT NULL DEFAULT ''
-            """)
-        conn.commit()
-        conn.close()
+            self.__cursor.execute("""
+                    ALTER TABLE knowledge_base
+                    ADD COLUMN category TEXT NOT NULL DEFAULT ''
+                    """)
+
+        self.__conn.commit()
 
     @staticmethod
     # ANSI escape for moving the cursor up N lines
@@ -953,11 +994,11 @@ class DLM:
         # collapse any extra spaces
         self.__special_stripped_query = " ".join(self.__special_stripped_query.split())
 
-        conn = sqlite3.connect(self.__filename)
-        cursor = conn.cursor()
-        cursor.execute("SELECT question, answer FROM knowledge_base")
-        rows = cursor.fetchall()
-        conn.close()
+        if self.__cursor:
+            self.__cursor.execute("SELECT question, answer FROM knowledge_base")
+            rows = self.__cursor.fetchall()
+        else:
+            rows = []
 
         highest_similarity = 0.0
         best_match_question = None

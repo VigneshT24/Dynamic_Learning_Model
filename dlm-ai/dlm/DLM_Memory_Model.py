@@ -15,18 +15,23 @@ def get_category(self, exact_question):  # returns category as a string or None
         - Performs a lookup for the given question.
         - Returns the corresponding category tag if a match exists.
     """
-    conn = sqlite3.connect(self._DLM__filename)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT category FROM knowledge_base WHERE question = ?",
-        (exact_question,)
-    )
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return row[0]  # this is the category/question_type
-    else:
-        return None  # question not found
+    if not hasattr(self, '_DLM__cursor') or not self._DLM__cursor:
+        return None
+    try:
+        self._DLM__cursor.execute(
+            "SELECT category FROM knowledge_base WHERE question = ?",
+            (exact_question,)
+        )
+        row = self._DLM__cursor.fetchone()
+
+        if row:
+            return row[0]  # this is the category/question_type
+        else:
+            return None  # question not found
+
+    except Exception as e:
+        print(f"System: Database Read Error in get_category: {e}")
+        return None
 
 
 def get_specific_question(self, exact_answer):  # returns question as a string or None
@@ -44,18 +49,24 @@ def get_specific_question(self, exact_answer):  # returns question as a string o
         - Searches for a question where the answer matches exactly.
         - Returns the first matching question, or None if no match exists.
     """
-    conn = sqlite3.connect(self._DLM__filename)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT question FROM knowledge_base WHERE answer = ?",
-        (exact_answer,)
-    )
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return row[0]  # this is the category/question_type
-    else:
-        return None  # question not found
+    if not hasattr(self, '_DLM__cursor') or not self._DLM__cursor:
+        return None
+
+    try:
+        self._DLM__cursor.execute(
+            "SELECT question FROM knowledge_base WHERE answer = ?",
+            (exact_answer,)
+        )
+        row = self._DLM__cursor.fetchone()
+
+        if row:
+            return row[0]
+        else:
+            return None
+
+    except Exception as e:
+        print(f"System: Database Read Error in get_specific_question: {e}")
+        return None
 
 def learn(self, expectation, category):  # no return, void
     """
@@ -70,11 +81,18 @@ def learn(self, expectation, category):  # no return, void
           into the SQLite database.
         - Uses 'INSERT OR IGNORE' to prevent duplicate entries.
     """
-    conn = sqlite3.connect(self._DLM__filename)
-    c = conn.cursor()
-    c.execute(
-        "INSERT OR IGNORE INTO knowledge_base (question, answer, category) VALUES (?, ?, ?)",
-        (self._DLM__special_stripped_query, expectation, category)
-    )
-    conn.commit()
-    conn.close()
+    # we need to both run cursor and connection
+    if not hasattr(self, '_DLM__cursor') or not self._DLM__conn:
+        print("System: Error - Cannot learn, database connection lost.")
+        return
+
+    try:
+        self._DLM__cursor.execute(
+            "INSERT OR IGNORE INTO knowledge_base (question, answer, category) VALUES (?, ?, ?)",
+            (self._DLM__special_stripped_query, expectation, category)
+        )
+
+        self._DLM__conn.commit()
+
+    except Exception as e:
+        print(f"System: Database Write Error in learn: {e}")
