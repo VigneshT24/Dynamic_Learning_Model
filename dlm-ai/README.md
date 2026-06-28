@@ -1,11 +1,9 @@
-![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=SQLite&logoColor=white)
-![HuggingFace Transformers](https://img.shields.io/badge/-HuggingFace-3B4252?style=flat&logo=huggingface&logoColor=)
-
-![DLM Logo](https://ik.imagekit.io/cqhzoyggfm/DLM%20Logo.png?updatedAt=1759635222204)
-
-# Dynamic Learning Model
-**ABOUT**:
+<table>
+  <tr>
+    <td><img src="https://ik.imagekit.io/cqhzoyggfm/DLM%20Logo.png?updatedAt=1759635222204" width="90"></td>
+    <td><h1>Dynamic Learning Model</h1></td>
+  </tr>
+</table>
 
 The Dynamic Learning Model (DLM) is a hybrid AI system designed to learn, adapt, and intelligently respond to user queries. It combines natural language understanding with structured reasoning, continually improving as it is trained.
 
@@ -34,7 +32,7 @@ Whether you're building a student support bot, a domain-specific assistant, or a
 ```bash
 pip install dynamic-learning-model
 ```
-* ***Python 3.12.0 is required to use this bot in your program.***
+* ***Python 3.12.0 or higher is required to use this bot in your program.***
 
 ('learn' mode [training queries])
 ```python
