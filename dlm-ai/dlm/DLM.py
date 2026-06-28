@@ -1,3 +1,8 @@
+import os
+import warnings
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+warnings.filterwarnings("ignore")
 import difflib
 import string
 import random
