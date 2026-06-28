@@ -3,8 +3,8 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dlm"
-version = "4.0.0"
+name = "dynamic-learning-model"
+version = "4.0.1"
 description = "A Dynamic-Learning Model (DLM) chatbot with memory and compute reasoning modes."
 readme = "README.md"
 requires-python = ">=3.12"
