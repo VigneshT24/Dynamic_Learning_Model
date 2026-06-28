@@ -1,3 +1,25 @@
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "dlm"
+version = "4.0.0"
+description = "A Dynamic-Learning Model (DLM) chatbot with memory and compute reasoning modes."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Vignesh Thondikulam", email = "vignesh.tho2006@gmail.com" }
+]
+dependencies = [
+    "spacy>=3.7",
+    "transformers>=4.30",
+    "torch>=2.0",
+    "better-profanity>=0.7",
+    "nltk>=3.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/VigneshT24/Dynamic_Learning_Model"
+Repository = "https://github.com/VigneshT24/Dynamic_Learning_Model"
