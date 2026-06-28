@@ -4,6 +4,9 @@ import random
 import spacy
 import time
 import sqlite3
+from transformers.utils import logging as hf_logging
+hf_logging.disable_progress_bar()
+hf_logging.set_verbosity_error()
 from .DLM_Compute_Model import perform_advanced_CoT
 from .DLM_Memory_Model import get_category
 from .DLM_Memory_Model import get_specific_question
