@@ -1,17 +1,20 @@
 import os
-import warnings
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["HF_HUB_VERBOSITY"] = "error"
+import warnings
 warnings.filterwarnings("ignore")
+import logging
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+from transformers.utils import logging as hf_logging
+hf_logging.disable_progress_bar()
+hf_logging.set_verbosity_error()
 import difflib
 import string
 import random
 import spacy
 import time
 import sqlite3
-from transformers.utils import logging as hf_logging
-hf_logging.disable_progress_bar()
-hf_logging.set_verbosity_error()
 from .DLM_Compute_Model import perform_advanced_CoT
 from .DLM_Memory_Model import get_category
 from .DLM_Memory_Model import get_specific_question
