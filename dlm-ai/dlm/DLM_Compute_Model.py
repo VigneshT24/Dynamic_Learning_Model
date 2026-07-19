@@ -292,11 +292,19 @@ def pick_out_names(self, doc, persons_mentioned, filtered_query):
             if cleaned:
                 persons_mentioned.append(cleaned)
 
-    tokens = nltk.word_tokenize(filtered_query)
+    # this is to solve a problematic issue with nltk if a certain package is not already downloaded
+    try:
+        tokens = nltk.word_tokenize(filtered_query)
+    except LookupError:
+        # silently download the tokenizer if it is missing
+        nltk.download('punkt_tab', quiet=True)
+        tokens = nltk.word_tokenize(filtered_query)
+
     for tok in tokens:
         cleaned = re.sub(r"[^a-zA-Z]", "", tok).lower()
         if cleaned in self._DLM__nltk_names:
             persons_mentioned.append(cleaned.capitalize())
+
     persons_mentioned = {name for name in set(persons_mentioned) if len(name.split()) == 1}
     persons_mentioned = set(persons_mentioned)
 

@@ -24,6 +24,7 @@ from transformers import pipeline
 from better_profanity import profanity
 from nltk.corpus import names
 
+
 class DLM:
     # for one-time, shared model loaders so that each object won't load a new model (> 2GB)
     _shared_nlp = None
@@ -372,7 +373,7 @@ class DLM:
         "Let’s reset. Rephrase your question without the frustration, and I’ll be able to help you effectively."
     ]
 
-    def __init__(self, mode, db_filename="dlm_database.db"):  # initializes SQL database & SpaCy NLP
+    def __init__(self, mode, db_filename=None):  # initializes SQL database & SpaCy NLP
         """
         Initialize the Dynamic-Learning Model (DLM) chatbot.
 
@@ -380,7 +381,7 @@ class DLM:
             mode (str): The access mode. Options:
                         'learn' for training mode (to train the bot with queries).
                         'apply' for a trained model to choose between compute and memory mode.
-            db_filename (str): The SQLite database file used to train and retrieve
+            db_filename (str, optional): The SQLite database file used to train and retrieve
                                question-answer-category triples.
 
         Behavior:
@@ -410,7 +411,16 @@ class DLM:
         self.__nlp = DLM._shared_nlp
         self.__hf_classifier = DLM._shared_hf
 
-        self.__filename = db_filename
+        if db_filename is None:
+            # Create an absolute path to a hidden folder in the user's home directory
+            home_dir = os.path.expanduser("~")
+            dlm_dir = os.path.join(home_dir, ".dlm")
+            
+            # Ensure the directory exists before SQLite tries to connect
+            os.makedirs(dlm_dir, exist_ok=True)
+            self.__filename = os.path.join(dlm_dir, "dlm_database.db")
+        else:
+            self.__filename = db_filename
         self.__mode = mode
 
         try:

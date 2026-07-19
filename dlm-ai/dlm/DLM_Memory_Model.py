@@ -1,5 +1,3 @@
-import sqlite3
-
 def get_category(self, exact_question):  # returns category as a string or None
     """
     Retrieve the category (question type) associated with a specific question from the SQLite knowledge base.
@@ -71,6 +69,7 @@ def get_specific_question(self, exact_answer):  # returns question as a string o
 def learn(self, expectation, category):  # no return, void
     """
     Store a new question-answer-category entry in the SQLite knowledge base.
+    If the question already exists and the trainer gives a new response, it updates the answer and category of that existing question
 
     Parameters:
         expectation (str): The expected answer or response to the current user query.
@@ -88,7 +87,13 @@ def learn(self, expectation, category):  # no return, void
 
     try:
         self._DLM__cursor.execute(
-            "INSERT OR IGNORE INTO knowledge_base (question, answer, category) VALUES (?, ?, ?)",
+            """
+            INSERT INTO knowledge_base (question, answer, category) 
+            VALUES (?, ?, ?)
+            ON CONFLICT(question) DO UPDATE SET 
+                answer = excluded.answer,
+                category = excluded.category
+            """,
             (self._DLM__special_stripped_query, expectation, category)
         )
 
