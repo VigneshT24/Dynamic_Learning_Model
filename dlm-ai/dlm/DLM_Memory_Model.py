@@ -66,7 +66,7 @@ def get_specific_question(self, exact_answer):  # returns question as a string o
         print(f"System: Database Read Error in get_specific_question: {e}")
         return None
 
-def learn(self, expectation, category):  # no return, void
+def learn(self, question, expectation, category):  
     """
     Store a new question-answer-category entry in the SQLite knowledge base.
     If the question already exists and the trainer gives a new response, it updates the answer and category of that existing question
@@ -83,7 +83,7 @@ def learn(self, expectation, category):  # no return, void
     # we need to both run cursor and connection
     if not hasattr(self, '_DLM__cursor') or not self._DLM__conn:
         print("System: Error - Cannot learn, database connection lost.")
-        return
+        return False
 
     try:
         self._DLM__cursor.execute(
@@ -94,10 +94,12 @@ def learn(self, expectation, category):  # no return, void
                 answer = excluded.answer,
                 category = excluded.category
             """,
-            (self._DLM__special_stripped_query, expectation, category)
+            (question, expectation, category)
         )
 
         self._DLM__conn.commit()
-
+        return True
+    
     except Exception as e:
         print(f"System: Database Write Error in learn: {e}")
+        return False

@@ -1,4 +1,6 @@
 import os
+import io
+import contextlib
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_VERBOSITY"] = "error"
@@ -13,12 +15,11 @@ import difflib
 import string
 import random
 import spacy
-import time
 import sqlite3
-from .DLM_Compute_Model import perform_advanced_CoT
-from .DLM_Memory_Model import get_category
-from .DLM_Memory_Model import get_specific_question
-from .DLM_Memory_Model import learn
+from DLM_Compute_Model import perform_advanced_CoT
+from DLM_Memory_Model import get_category
+from DLM_Memory_Model import get_specific_question
+from DLM_Memory_Model import learn
 import math
 from transformers import pipeline
 from better_profanity import profanity
@@ -33,8 +34,6 @@ class DLM:
 
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
-    __expectation = None  # trainer-inputted expected answer to query
-    __category = None  # categorizes each question for efficient retrieval and basic NLG in SQL DB
     __nlp = None  # Spacy NLP analysis
     __tone = None  # sentimental tone of user query
     __mode = None  # either "learn" or "apply"
@@ -167,9 +166,6 @@ class DLM:
         "should", "may", "might", "must",
         "show", "list", "give", "how", "i"
     ]
-
-    # special words that the bot can mention while in "CoT"
-    __special_exception_fillers = ["define", "explain", "describe", "compare", "calculate", "translate", "mean"]
 
     # advanced CoT computation identifiers
     __computation_identifiers = {
@@ -395,12 +391,10 @@ class DLM:
         """
         # lazy load SpaCy
         if DLM._shared_nlp is None:
-            print("Loading Spacy NLP model... (one-time)")
             DLM._shared_nlp = spacy.load("en_core_web_lg")
 
         # lazy Load HuggingFace
         if DLM._shared_hf is None:
-            print("Loading HuggingFace Classifier... (one-time)")
             DLM._shared_hf = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
         # load profanity filter
@@ -431,7 +425,6 @@ class DLM:
             self.__conn = None
             self.__cursor = None
 
-        self.__login_verification(self.__mode)
         self.__create_table_if_missing()
 
     def __del__(self):
@@ -445,45 +438,7 @@ class DLM:
         except Exception:
             pass  # Suppress errors during destruction to prevent noisy exit
 
-    def __login_verification(self, mode):  # no return, void
-        """
-        Verify and initialize the selected access mode (Learn or Apply).
-
-        Parameters:
-            mode (str): The access mode. Options:
-                        'learn' for training mode (to train the bot with queries).
-                        'apply' for trained model to choose "compute" or "memory" mode.
-        Behavior:
-            - If mode is 'learn', displays mandatory training instructions that must be understood.
-            - If mode is 'apply', allows model to answer queries using trained data and compute model.
-        """
-        if mode.lower() == "learn":
-            # trainers must understand these rules as DLM can generate bad responses if these instructions are neglected
-            print(
-                f"\n\nMAKE SURE TO UNDERSTAND THE FOLLOWING ANSWER FORMAT EXPECTED FOR EACH CATEGORY FOR THE BOT TO LEARN ACCURATELY:\n")
-            print("*'yesno': Make sure to start your answer responses with \"yes\" or \"no\" ONLY")
-            print(
-                "*'process': Each answer must have three steps for your responses, separated by \";\" (semicolon)")
-            print(
-                "*'definition': Make sure to not mention the WORD/PHRASE to be defined & always start your response here with \"the\" only")
-            print("*'deadline': Only include the deadline date, as an example, \"March 31st 2025\"")
-            print("*'location': Mention the location only, nothing else. For example, \"The FAFSA.Gov website\"")
-            print("*'generic': Format doesn't matter for this, give your answer in any comprehensive format")
-            print(
-                "*'eligibility': Make sure to ONLY start the response with a pronoun like \"you\", \"they\", \"he\", \"she\", etc\n\n")
-
-            confirmation = input(
-                "Make sure to understand and note these instructions somewhere as the generated responses would get corrupt otherwise.\nType 'Y' if you understood: ")
-            while confirmation.lower() != "y":  # trainers must understand the instructions above
-                confirmation = input("You cannot proceed to train without understanding the instructions aforementioned. Type 'Y' to continue: ")
-            self.__mode = "learn"
-            print("\n")
-            print("Logging in as Trainer...")
-            print("\n")
-        else:
-            self.__mode = "apply"
-
-    def __create_table_if_missing(self):  # no return, void
+    def __create_table_if_missing(self):
         """
         Ensure the existence of the 'knowledge_base' table in the SQLite database; create or modify it if necessary.
 
@@ -520,20 +475,7 @@ class DLM:
 
         self.__conn.commit()
 
-    @staticmethod
-    # ANSI escape for moving the cursor up N lines
-    def __move_cursor_up(lines):  # no return, void
-        print(f"\033[{lines}A", end="")
-
-    @staticmethod
-    # loading animation for bot thought process (deprecated in favor for readability on production)
-    def __loading_animation(user_input, duration):  # no return, void
-        for seconds in range(0, 3):
-            print(f"\r{user_input}{'.' * (seconds + 1)}", end="", flush=True)
-            time.sleep(duration)
-        print("\n")
-
-    def __filtered_input(self, userInput):  # returns filtered string
+    def __filtered_input(self, userInput) -> string:
         """
         Filter out filler words from the user input while preserving important context.
 
@@ -590,7 +532,7 @@ class DLM:
         # join the remaining words back into a string
         return " ".join(unique_words)
 
-    def __set_sentiment_tone(self, orig_input):  # no return, void
+    def __set_sentiment_tone(self, orig_input):
         """
         Analyze the original user input and assign an appropriate emotional tone.
 
@@ -628,7 +570,7 @@ class DLM:
             else:
                 self.__tone = ""
 
-    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought):  # no return, void
+    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought):
         """
         Simulate a Chain-of-Thought (CoT) reasoning process by printing the bot's internal analysis.
 
@@ -715,7 +657,7 @@ class DLM:
         elif self.__model == "compute":
             perform_advanced_CoT(self, filtered_query, display_thought)
 
-    def __generate_response(self, best_match_answer, best_match_question):  # no return, void
+    def __generate_response(self, best_match_answer, best_match_question):
         """
         Generate a dynamic natural language response based on the answer's category.
 
@@ -723,87 +665,54 @@ class DLM:
             best_match_answer (str): The stored answer retrieved from the knowledge base.
             best_match_question (str): The matched user question used to derive category context.
 
-        Behavior:
-            - Determines the question's category using internal tagging (e.g., 'yesno', 'process', etc.).
-            - Selects a category-specific response template to simulate Natural Language Generation (NLG).
-            - Reformats the answer with human-like phrasing and prints it in stylized terminal output.
-            - Handles special formatting for categories like definitions, processes, and deadlines.
-            - Gracefully handles unrecognized categories or missing data.
+        Returns:
+            str: The formatted, human-like response string based on the category template.
+                 Returns an error message string if the category is unrecognized or missing.
         """
         identifier = get_category(self, best_match_question)
 
         if identifier is None:
-            print("Sorry, I encountered an error on my end. Please try again later.")
-            return
+            return "Sorry, I encountered an error on my end. Please try again later."
 
         if identifier == "generic":
-            print(f"\n{best_match_answer}\n")
+            return best_match_answer
 
         elif identifier == "yesno":
             affirmative_templates = [
-                "Yes, {}",
-                "Absolutely, {}",
-                "Certainly, {}",
-                "Indeed, {}",
-                "That's right, {}",
-                "Correct, {}",
-                "You got it, {}",
-                "Sure thing, {}",
-                "Of course, {}",
-                "Definitely, {}",
-                "Without a doubt, {}",
-                "That's true, {}",
-                "Affirmative, {}",
-                "Right on, {}",
-                "You're spot on, {}",
-                "Exactly, {}",
-                "Totally, {}",
-                "No question about it, {}",
-                "100%, {}",
-                "I agree, {}"
+                "Yes, {}", "Absolutely, {}", "Certainly, {}", "Indeed, {}",
+                "That's right, {}", "Correct, {}", "You got it, {}", "Sure thing, {}",
+                "Of course, {}", "Definitely, {}", "Without a doubt, {}",
+                "That's true, {}", "Affirmative, {}", "Right on, {}",
+                "You're spot on, {}", "Exactly, {}", "Totally, {}",
+                "No question about it, {}", "100%, {}", "I agree, {}"
             ]
             negative_templates = [
-                "No, {}",
-                "Not at all, {}",
-                "Unfortunately, {}",
-                "Of course not, {}",
-                "That's not correct, {}",
-                "Actually, no, {}",
-                "I'm afraid not, {}",
-                "Nope, {}",
-                "Sorry, but no, {}",
-                "That’s not the case, {}",
-                "Negative, {}",
-                "Not quite, {}",
-                "That’s incorrect, {}",
-                "I'm sorry, {}",
-                "Absolutely not, {}",
-                "Nah, {}",
-                "Doesn’t seem so, {}",
-                "I wouldn't say that, {}",
-                "No way, {}",
+                "No, {}", "Not at all, {}", "Unfortunately, {}", "Of course not, {}",
+                "That's not correct, {}", "Actually, no, {}", "I'm afraid not, {}",
+                "Nope, {}", "Sorry, but no, {}", "That’s not the case, {}",
+                "Negative, {}", "Not quite, {}", "That’s incorrect, {}",
+                "I'm sorry, {}", "Absolutely not, {}", "Nah, {}",
+                "Doesn’t seem so, {}", "I wouldn't say that, {}", "No way, {}",
                 "That’s a no, {}"
             ]
 
             ans = best_match_answer.strip().lower()
             if ans.startswith(("no", "not", "don't", "do not", "never", "cannot")):
                 template = random.choice(negative_templates)
-                # remove instances of "negative" words to remove redundancy
                 if ans.__contains__("no, "):
                     best_match_answer = best_match_answer.replace("no, ", "", 1)
                 else:
                     best_match_answer = best_match_answer.replace("no ", "", 1)
             else:
                 template = random.choice(affirmative_templates)
-                # remove instances of "affirmative" words to remove redundancy
                 if ans.__contains__("yes, "):
                     best_match_answer = best_match_answer.replace("yes, ", "", 1)
                 else:
                     best_match_answer = best_match_answer.replace("yes ", "", 1)
-            response = template.format(best_match_answer)
-            print(f"\n{response}\n")
+            
+            return template.format(best_match_answer)
 
-        elif identifier == "process":  # when training, make sure there are only 3 steps for "process"
+        elif identifier == "process":  
             templates = [
                 "To get started, {}. Then, {}. Finally, {}",
                 "First, {}. Next, {}. Lastly, {}",
@@ -816,49 +725,36 @@ class DLM:
                 "Start off by {}. Then move on to {}. Finally, make sure you {}.",
                 "Begin with {}. Then take care of {}. Lastly, ensure you {}."
             ]
-            steps = best_match_answer.split("; ")  # steps must be separated by a semicolon
-            response = random.choice(templates).format(*steps[:3])
-            print(f"\n{response}\n")
+            steps = best_match_answer.split("; ")  
+            return random.choice(templates).format(*steps[:3])
 
         elif identifier == "definition":
-            # extract just the term by filtering out common definition triggers
-            raw = best_match_question  # e.g. "what definition fafsa"
+            raw = best_match_question  
             triggers = {
                 "what", "definition", "define", "meaning", "interpret",
                 "what's", "whats", "what is", "what does", "mean", "means",
                 "could", "you", "explain", "describe", "clarify", "tell",
                 "me", "give", "the", "of", "in", "other", "words"
             }
-            # split on whitespace, drop any trigger words (case‐insensitive)
             term_words = [w for w in raw.split() if w.lower() not in triggers]
             term = " ".join(term_words).strip()
 
             templates = [
-                "\"{0}\" refers to {1}",
-                "By definition, \"{0}\" is {1}",
-                "In simple terms, \"{0}\" means {1}",
-                "\"{0}\" can be described as {1}",
-                "The term \"{0}\" stands for {1}",
-                "Essentially, \"{0}\" is {1}",
-                "\"{0}\" is understood as {1}",
-                "In other words, \"{0}\" is {1}",
-                "To put it simply, \"{0}\" refers to {1}",
-                "\"{0}\" typically means {1}",
-                "When we say \"{0}\", we’re talking about {1}",
-                "\"{0}\" represents {1}",
-                "\"{0}\" is defined as {1}",
-                "You can think of \"{0}\" as {1}"
+                "It refers to {1}", "By definition, it is {1}",
+                "In simple terms, it means {1}", "It can be described as {1}",
+                "Essentially, it is {1}", "It is understood as {1}", 
+                "In other words, it is {1}", "To put it simply, it refers to {1}", 
+                "It typically means {1}", "It represents {1}",
+                "It is defined as {1}", "You can think of it as {1}"
             ]
-            response = random.choice(templates).format(term, best_match_answer)
-            print(f"\n{response}\n")
+            return random.choice(templates).format(term, best_match_answer)
 
         elif identifier == "deadline":
             raw = best_match_question
             triggers = {
                 "when", "what", "what's", "whats", "when's", "whens",
-                "is", "the", "a", "an",
-                "deadline", "due", "due date", "cutoff", "closing", "closing date",
-                "by", "before", "until",
+                "is", "the", "a", "an", "deadline", "due", "due date", 
+                "cutoff", "closing", "closing date", "by", "before", "until",
                 "date", "day", "last", "latest", "final", "damn"
             }
             words = raw.split()
@@ -866,72 +762,48 @@ class DLM:
             term = " ".join(term_words).strip()
 
             templates = [
-                "The deadline for \"{0}\" is {1}",
-                "You need to submit \"{0}\" by {1}",
-                "Make sure to complete \"{0}\" by {1}",
-                "\"{0}\" is due on {1}",
-                "Don’t forget, \"{0}\" must be done by {1}",
-                "\"{0}\" has a due date of {1}",
-                "Be sure to finish \"{0}\" before {1}",
-                "Please submit \"{0}\" no later than {1}",
-                "\"{0}\" needs to be turned in by {1}",
-                "The final date to complete \"{0}\" is {1}",
-                "Submission for \"{0}\" closes on {1}",
-                "You have until {1} to complete \"{0}\"",
-                "\"{0}\" is expected to be submitted by {1}",
-                "\"{0}\" must be handed in by {1}",
-                "The cutoff for \"{0}\" is {1}"
+                "The deadline is {1}", "You need to submit it by {1}",
+                "Make sure to complete it by {1}", "It is due on {1}",
+                "Don’t forget, it must be done by {1}", "It has a due date of {1}",
+                "Be sure to finish it before {1}", "Please submit it no later than {1}",
+                "It needs to be turned in by {1}", "The final date to complete it is {1}",
+                "Submission closes on {1}", "You have until {1} to complete it",
+                "It is expected to be submitted by {1}", "It must be handed in by {1}",
+                "The cutoff is {1}"
             ]
-            response = random.choice(templates).format(term, best_match_answer)
-            print(f"\n{response}\n")
+            return random.choice(templates).format(term, best_match_answer)
 
         elif identifier == "location":
             templates = [
-                "You can find it at {0}",
-                "It’s located at {0}",
-                "Head over to {0} for more information",
-                "Check it out at {0}",
-                "Access it via {0}",
-                "You’ll find it here: {0}",
-                "It’s available at {0}",
-                "Navigate to {0} to view it",
-                "You can reach it at {0}",
-                "Visit {0} to learn more",
-                "Take a look at {0}",
-                "More details can be found at {0}",
-                "For further info, go to {0}",
-                "To see it yourself, just go to {0}"
+                "You can find it at {0}", "It’s located at {0}",
+                "Head over to {0} for more information", "Check it out at {0}",
+                "Access it via {0}", "You’ll find it here: {0}",
+                "It’s available at {0}", "Navigate to {0} to view it",
+                "You can reach it at {0}", "Visit {0} to learn more",
+                "Take a look at {0}", "More details can be found at {0}",
+                "For further info, go to {0}", "To see it yourself, just go to {0}"
             ]
             best_match_answer = best_match_answer.lower()
-            response = random.choice(templates).format(best_match_answer)
-            print(f"\n{response}\n")
+            return random.choice(templates).format(best_match_answer)
 
         elif identifier == "eligibility":
             templates = [
-                "Eligibility means {0}",
-                "Eligibility requires that {0}",
-                "Qualifications are met only if {0}",
-                "To be eligible, {0}",
-                "Meeting eligibility involves {0}",
-                "You qualify only if {0}",
-                "Eligibility is based on whether {0}",
-                "In order to qualify, {0}",
-                "You are eligible when {0}",
-                "The requirements are satisfied if {0}",
-                "Eligibility depends on {0}",
-                "To meet the qualifications, {0}",
-                "Being eligible implies that {0}",
-                "You're considered eligible if {0}",
+                "Eligibility means {0}", "Eligibility requires that {0}",
+                "Qualifications are met only if {0}", "To be eligible, {0}",
+                "Meeting eligibility involves {0}", "You qualify only if {0}",
+                "Eligibility is based on whether {0}", "In order to qualify, {0}",
+                "You are eligible when {0}", "The requirements are satisfied if {0}",
+                "Eligibility depends on {0}", "To meet the qualifications, {0}",
+                "Being eligible implies that {0}", "You're considered eligible if {0}",
                 "Eligibility conditions include {0}"
             ]
             best_match_answer = best_match_answer.lower()
-            response = random.choice(templates).format(best_match_answer)
-            print(f"\n{response}\n")
+            return random.choice(templates).format(best_match_answer)
 
         else:
-            print("Cannot retrieve and generate response due to data in unfamiliar category. Please try again later.")
+            return "Cannot retrieve and generate response due to data in unfamiliar category. Please try again later."
 
-    def __semantic_similarity(self, userInput, knowledgebaseData):  # returns True/False
+    def __semantic_similarity(self, userInput, knowledgebaseData) -> bool:
         """
         Evaluate semantic similarity between user input and a stored question using SpaCy vectors.
 
@@ -955,37 +827,92 @@ class DLM:
             return self.__nlp_similarity_value > 0.50
         else:
             return False
-
-    def ask(self, query, display_thought):  # no return, void
+        
+    def teach(self, question, expected_answer, category) -> learn: 
         """
-        Handle a full user interaction loop with the DLM bot.
+        Public API for training the bot with new question-answer-category triples.
 
-        NOTICE: To make the bot run continuously, implement a loop in your program.
+        Make sure the expected_answer adheres to the training rules, as written in the DLM github repo: https://github.com/VigneshT24/Dynamic_Learning_Model
+
+        Category Options:
+            - "yesno": make sure to start your answer responses with "yes" or "no" ONLY
+            - "process": each answer must have three steps for your responses, separated by ";" (semicolon)
+            - "definition": make sure to not mention the WORD/PHRASE to be defined & always start your response here with "the" only
+            - "deadline": only include the deadline date, as an example, "March 31st 2025"
+            - "location": mention the location only, nothing else. For example, "The xyz.com website"
+            - "generic": format doesn't matter for this, give your answer in any comprehensive format
+            - "eligibility": Make sure to ONLY start the response with a pronoun like "you", "they", "he", "she", etc
+        
+        More detail in the Github repo.
+        """
+        # calls the learn method from memory model file
+        return learn(self, question, expected_answer, category)
+
+
+    def ask(self, query, display_thought) -> dict: 
+        """
+        Process a user query and return a state-signaling dictionary containing the response and reasoning.
+
+        This method employs an inversion-of-control architecture. It does not block execution 
+        or prompt the user for input directly. Instead, it delegates conversational state to the 
+        implementor by returning specific status codes. The implementor is responsible for 
+        managing user prompts, validations, and calling the `teach()` method when required.
 
         Parameters:
-            query (str): Question the bot would learn or respond to.
-            display_thought (bool): "True" for allowing bot to print its thought and CoT or "False".
+            query (str): The user's question or statement to be processed.
+            display_thought (bool): If True, captures the bot's internal Chain-of-Thought (CoT) 
+                                    reasoning and includes it in the returned dictionary.
 
-        Behavior:
-            - Prompts the user for input.
-            - Determines whether to choose "compute" or "memory" model to respond.
-            - Detects tone, filters input, searches knowledge base.
-            - Performs Chain-of-Thought (CoT) while recalling learnt answer.
-            - If match is found, generates a response.
-            - If in learning mode and answer is incorrect or not found, prompts user to teach the bot.
-            - In apply mode, automatically chooses between its compute and memory model to answer the query.
+        Returns:
+            dict: A structured response containing the following keys:
+                - 'status' (str): The state of the interaction.
+                - 'answer' (str): The final generated response, fallback message, or refusal statement.
+                - 'thought' (str): The captured CoT analysis (empty if display_thought is False).
+                - 'context' (dict): Metadata needed for teaching, including 'special_stripped_query' 
+                                    and 'best_match_answer'.
+
+        'status' Codes:
+            - 'resolved': The bot successfully answered the query (or executed a fallback response).
+            - 'refused': The bot refused to answer due to profanity, aggressive tone, or an empty query.
+            - 'confirm_teaching': The bot found a potential answer in 'learn' mode. The implementor 
+                                  should ask the user to verify if the answer is expected.
+            - 'needs_teaching': The bot could not find a valid answer or compute a result. The implementor 
+                                should prompt the user for the correct answer and category, then pass 
+                                those to the `teach()` method.
         """
+        # initialize return schema
+        response_data = {
+            "status": "resolved", # 'resolved', 'refused', 'confirm_teaching', 'needs_teaching'
+            "answer": "",
+            "thought": "",
+            "context": {}
+        }
+
+        cot_buffer = io.StringIO()
+        answer_buffer = io.StringIO()
+
         self.__query = query
-        while self.__query is None or self.__query == "":
-            self.__query = input("Empty input is unacceptable. Please enter something: ")
+        
+        # for implementor to handle empty queries
+        if self.__query is None or self.__query.strip() == "":
+            response_data["status"] = "refused"
+            response_data["answer"] = "Empty input is unacceptable. Please enter something."
+            return response_data
 
-        self.__set_sentiment_tone(self.__query)  # sets global variable sentiment tone
+        # tone check
+        with contextlib.redirect_stdout(answer_buffer):
+            self.__set_sentiment_tone(self.__query) 
+            if self.__refuse_to_respond:
+                print()
+                print(random.choice(self.__refuse_to_respond_statements))
+
+        # for implementor to handle 
         if self.__refuse_to_respond:
-            print()
-            print(random.choice(self.__refuse_to_respond_statements))
-            return
+            response_data["status"] = "refused"
+            response_data["answer"] = answer_buffer.getvalue()
+            return response_data
 
-        # auto model choose using HuggingFace
+        # model routing
         if self.__mode != "learn":
             auto_model_choice = self.__hf_classifier(self.__query, ["mathematical", "not mathematical"])["labels"][0]
             if auto_model_choice == "mathematical":
@@ -995,9 +922,8 @@ class DLM:
         else:
             self.__model = "memory"
 
-        # storing the user-query (filtered, lower-case, no punctuation)
+        # filtering
         if self.__model == "compute":
-            # We want to keep the following
             keep = {".", "+", "-", "*", "/", "="}
             to_remove = "".join(ch for ch in string.punctuation if ch not in keep)
         else:
@@ -1006,15 +932,13 @@ class DLM:
         translation_table = str.maketrans("", "", to_remove)
         filtered_query = self.__filtered_input(self.__query.lower().translate(translation_table))
 
-        # match_query is the query without special words to prevent interference with SpaCy similarity
         self.__special_stripped_query = filtered_query
-        special_exceptions = ["definition", "explanation", "description", "comparison", "calculation", "translation",
-                              "meaning"]
+        special_exceptions = ["definition", "explanation", "description", "comparison", "calculation", "translation", "meaning"]
         for word in special_exceptions:
             self.__special_stripped_query = self.__special_stripped_query.replace(word, "")
-        # collapse any extra spaces
         self.__special_stripped_query = " ".join(self.__special_stripped_query.split())
 
+        # database search
         if self.__cursor:
             self.__cursor.execute("SELECT question, answer FROM knowledge_base")
             rows = self.__cursor.fetchall()
@@ -1026,10 +950,8 @@ class DLM:
         best_match_answer = None
 
         for stored_question, stored_answer in rows:
-            # compare against both versions of the user query
             sim_stripped = difflib.SequenceMatcher(None, stored_question, self.__special_stripped_query).ratio()
             sim_filtered = difflib.SequenceMatcher(None, stored_question, filtered_query).ratio()
-            # pick the higher
             sim = max(sim_stripped, sim_filtered)
 
             if sim > highest_similarity:
@@ -1037,68 +959,82 @@ class DLM:
                 best_match_question = stored_question
                 best_match_answer = stored_answer
 
-        # "Chain of Thought" (CoT) Feature
-        self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
-                                display_thought)
+        if highest_similarity < 0.65 and not self.__semantic_similarity(self.__special_stripped_query, best_match_question):
+            best_match_answer = None
+            best_match_question = None
 
-        if self.__try_memory:
-            if display_thought:
-                print(f"Let me put this into my memory model, maybe it wasn't a mathematical query...")
-            self.__model = "memory"
+        response_data["context"] = {
+            "special_stripped_query": self.__special_stripped_query,
+            "best_match_answer": best_match_answer
+        }
+
+        # primary model attempt
+        with contextlib.redirect_stdout(cot_buffer):
             self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought)
+
+        # fallback routing attempt
+        if self.__model == "compute" and self.__try_memory:
+            with contextlib.redirect_stdout(cot_buffer):
+                if display_thought:
+                    print("Let me put this into my memory model, maybe it wasn't a mathematical query...")
+                self.__model = "memory"
+                self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought)
             self.__try_memory = False
-            self.__try_compute = False
 
-        # accept a match if highest_similarity is 65% or more, or if semantic similarity is recognized
         if self.__model == "memory":
-            if (not self.__unsure_while_thinking) and ((highest_similarity >= 0.65) or (
-                    best_match_answer and self.__semantic_similarity(self.__special_stripped_query,
-                                                                     best_match_question))):
-                self.__unsure_while_thinking = False  # reset this back to default for next iteration
-                self.__generate_response(best_match_answer, best_match_question)
-                if self.__mode == "learn":
-                    self.__expectation = input("Is this what you expected (Y/N): ")
-
-                    while not self.__expectation:  # if nothing entered, ask until question answered
-                        self.__expectation = input("Empty input is unacceptable. Is this what you expected (Y/N): ")
-
-                    if self.__expectation.lower() == "y":
-                        print("Great!")
-                        return
-                else:
-                    return
-
-            # only executes if training option is TRUE
-            if self.__mode == "learn":
-                self.__expectation = input(
-                    "I'm not sure. Train me with the expected response: ")  # train DLM with answer
-                while not self.__expectation:
-                    print("Nothing learnt. Moving on.")
-                    return
-                self.__category = input(
-                    "Which category does that question/answer belong to (yesno, process, definition, deadline, location, generic, eligibility): ").lower()
-
-                # used for generated response template
-                category_options = ["yesno", "process", "definition", "deadline", "location", "generic", "eligibility"]
-
-                while not self.__category or self.__category not in category_options:
-                    self.__category = input("You MUST give an appropriate category for the question/answer: ").lower()
-
-                learn(self, self.__expectation, self.__category)  # learn this new question and answer pair and add to knowledgebase
-                print("I learned something new!")  # confirmation that it went through the whole process
-            else:  # only executes when in apply mode and bot cannot find the answer
-                if self.__try_compute:
+            is_valid_match = (not self.__unsure_while_thinking) and ((highest_similarity >= 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question)))
+            
+            if not is_valid_match and self.__mode != "learn":
+                self.__model = "compute"
+                self.__try_compute = True
+                with contextlib.redirect_stdout(cot_buffer):
                     if display_thought:
-                        print(f"Let me put this into my computation model, maybe it was a mathematical query...")
-                    self.__model = "compute"
-                    self.__try_compute = True
-                    self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity,
-                                            display_thought)
-                    if not self.__successfully_computed:
-                        print(f"{random.choice(self.__fallback_responses)}")
-                        self.__try_compute = False
-                        self.__successfully_computed = False
+                        print("Let me put this into my computation model, maybe it was a mathematical query...")
+                    self.__generate_thought(filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought)
+
+        # resolution & final answer capture
+        with contextlib.redirect_stdout(answer_buffer):
+            if self.__model == "memory":
+                is_valid_match = (not self.__unsure_while_thinking) and ((highest_similarity >= 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question)))
+                
+                if is_valid_match:
+                    self.__unsure_while_thinking = False
+                    print(self.__generate_response(best_match_answer, best_match_question))
+                    response_data["status"] = "confirm_teaching" if self.__mode == "learn" else "resolved"
                 else:
-                    print(f"{random.choice(self.__fallback_responses)}")
-                    self.__try_compute = False
-                    self.__try_memory = False
+                    if self.__mode != "learn":
+                        print(random.choice(self.__fallback_responses))
+                    response_data["status"] = "needs_teaching"
+
+            elif self.__model == "compute":
+                if self.__successfully_computed:
+                    response_data["status"] = "resolved"
+                else:
+                    print(random.choice(self.__fallback_responses))
+                    response_data["status"] = "needs_teaching"
+                    
+                self.__try_compute = False
+                self.__successfully_computed = False
+
+        # extract and clean data
+        full_thought = cot_buffer.getvalue()
+        final_answer = answer_buffer.getvalue()
+
+        # extract math answers from the thought buffer into the answer buffer
+        if self.__model == "compute" and final_answer.strip() == "":
+            lines = full_thought.split("\n")
+            thought_lines = []
+            for line in lines:
+                if "Answer:" in line:
+                    final_answer += line + "\n"
+                else:
+                    thought_lines.append(line)
+            full_thought = "\n".join(thought_lines)
+
+        response_data["thought"] = full_thought.strip()
+        response_data["answer"] = final_answer.strip()
+
+        cot_buffer.close()
+        answer_buffer.close()
+
+        return response_data
