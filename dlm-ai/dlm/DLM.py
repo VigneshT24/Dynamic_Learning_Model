@@ -27,6 +27,14 @@ from nltk.corpus import names
 
 
 class DLM:
+    """
+    Dynamic-Learning Model (DLM) Chatbot.
+
+    A hybrid intent-routing chatbot that dynamically routes user queries between a 
+    computational math engine and an SQLite-backed memory model. It features 
+    Chain-of-Thought (CoT) reasoning, sentiment analysis, and an inversion-of-control 
+    architecture for seamless integration into external applications.
+    """
     # for one-time, shared model loaders so that each object won't load a new model (> 2GB)
     _shared_nlp = None
     _shared_hf = None
@@ -371,23 +379,11 @@ class DLM:
 
     def __init__(self, mode, db_filename=None):  # initializes SQL database & SpaCy NLP
         """
-        Initialize the Dynamic-Learning Model (DLM) chatbot.
+        Initializes the DLM chatbot, loading NLP models and connecting to the knowledge base.
 
-        Parameters:
-            mode (str): The access mode. Options:
-                        'learn' for training mode (to train the bot with queries).
-                        'apply' for a trained model to choose between compute and memory mode.
-            db_filename (str, optional): The SQLite database file used to train and retrieve
-                               question-answer-category triples.
-
-        Behavior:
-            - Loads the SpaCy NLP model ('en_core_web_lg').
-            - Loads the HuggingFace model for auto-model detection.
-            - Loads Better-Profanity for profane phrase sensing.
-            - Connects to the specified SQLite database file.
-            - Set appropriate mode value.
-            - Verify login information based on mode.
-            - Ensures the required table structure exists (creates if missing).
+        Args:
+            mode (str): 'learn' to enable teaching capabilities, 'apply' for standard use.
+            db_filename (str, optional): Absolute path to the SQLite database. Defaults to '~/.dlm/dlm_database.db'.
         """
         # lazy load SpaCy
         if DLM._shared_nlp is None:
@@ -440,17 +436,8 @@ class DLM:
 
     def __create_table_if_missing(self):
         """
-        Ensure the existence of the 'knowledge_base' table in the SQLite database; create or modify it if necessary.
-
-        Behavior:
-            - Establishes a connection to the SQLite database specified by self.__filename.
-            - Creates the 'knowledge_base' table if it does not exist, with the following columns:
-                - id (INTEGER, PRIMARY KEY, AUTOINCREMENT).
-                - question (TEXT, NOT NULL, UNIQUE).
-                - answer (TEXT, NOT NULL).
-                - category (TEXT, NOT NULL).
-            - If the table already exists but is missing the 'category' column, the method adds it with a default empty string.
-            - Used exclusively within the class constructor to ensure the database schema is properly initialized.
+        Ensures the SQLite 'knowledge_base' table exists and has the required schema.
+        Automatically adds the 'category' column to legacy databases.
         """
         if not self.__conn:
             return
@@ -484,14 +471,6 @@ class DLM:
 
         Returns:
             str: A filtered version of the input string with filler words removed and duplicates eliminated.
-
-        Behavior:
-            - Tokenizes the input into words.
-            - Removes filler words unless:
-                - It's the first word and part of the exception list.
-                - The current model is 'compute' and the word is a computation keyword.
-            - Preserves word order while removing duplicates.
-            - Joins the remaining words back into a single filtered string.
         """
         # tokenize user input (split into words)
         words = userInput.lower().split()
@@ -534,21 +513,13 @@ class DLM:
 
     def __set_sentiment_tone(self, orig_input):
         """
-        Analyze the original user input and assign an appropriate emotional tone.
+        Analyzes punctuation and profanity to determine the user's emotional state.
 
-        Parameters:
-            orig_input (str): The raw, unfiltered user query.
+        Sets the internal `__tone` variable and triggers the `__refuse_to_respond` flag 
+        if aggressive or highly inappropriate language is detected.
 
-        Behavior:
-            - Detects aggressive language using profanity filtering.
-            - Analyzes punctuation and casing to infer emotional tone such as:
-                - 'angry aggressive' for profane content - refuse to respond.
-                - 'angry frustrated' for all-uppercase text - refuse to respond.
-                - 'angry confused' for combined "?" and "!".
-                - 'angry excited' for "!" only.
-                - 'confused unclear' for "?" only.
-                - 'doubtful uncertain' for ellipses ("..." or "..").
-            - Stores the result in self.__tone as a string label.
+        Args:
+            orig_input (str): The raw, unaltered user query.
         """
         is_profane = profanity.contains_profanity(orig_input)
         if is_profane and orig_input == orig_input.upper(): # too inappropriate to respond
@@ -572,21 +543,18 @@ class DLM:
 
     def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought):
         """
-        Simulate a Chain-of-Thought (CoT) reasoning process by printing the bot's internal analysis.
+        Simulates and captures the Chain-of-Thought (CoT) reasoning process.
 
-        Parameters:
-            filtered_query (str): The cleaned version of the user's question, stripped of filler or trigger words.
-            best_match_question (str): The closest matching question found in the knowledge base.
-            best_match_answer (str): The corresponding answer to the matched question.
-            highest_similarity (float): The calculated string similarity score (0 to 1) for the match.
-            display_thought (bool): "True" if the bot is allowed to print its thought or else "False".
+        Analyzes tone, extracts context, checks string/vector similarities, and delegates 
+        to the advanced CoT computation engine if routed to the math model. Output is 
+        redirected to a buffer by the caller.
 
-        Behavior:
-            - Outputs step-by-step reasoning in a conversational format (e.g., interpreting the question's structure and tone).
-            - In compute mode, calls advanced reasoning (e.g., math parsing or CoT decomposition).
-            - Identifies the question's tone, topic, and potential intent based on interrogative words and SpaCy similarity.
-            - Displays confidence based on similarity metrics and sets flags for uncertain answers.
-            - Uses colorized terminal output and a loading animation to simulate reflective thought.
+        Args:
+            filtered_query (str): The cleaned user query.
+            best_match_question (str): The closest matching question from the database.
+            best_match_answer (str): The corresponding database answer.
+            highest_similarity (float): The sequence matcher ratio (0.0 to 1.0).
+            display_thought (bool): Flag enabling CoT generation.
         """
         if display_thought:
             print("\nThought Process:")
@@ -659,19 +627,18 @@ class DLM:
 
     def __generate_response(self, best_match_answer, best_match_question):
         """
-        Generate a dynamic natural language response based on the answer's category.
+        Generates a dynamic, human-like response based on the category of the matched answer.
 
-        Parameters:
-            best_match_answer (str): The stored answer retrieved from the knowledge base.
-            best_match_question (str): The matched user question used to derive category context.
+        Args:
+            best_match_answer (str): The raw answer retrieved from the database.
+            best_match_question (str): The original question to provide context for definitions/deadlines.
 
         Returns:
-            str: The formatted, human-like response string based on the category template.
-                 Returns an error message string if the category is unrecognized or missing.
+            str: The formatted response string ready to be delivered to the user.
         """
         identifier = get_category(self, best_match_question)
 
-        if identifier is None:
+        if identifier is None or identifier == "":
             return "Sorry, I encountered an error on my end. Please try again later."
 
         if identifier == "generic":
@@ -805,18 +772,14 @@ class DLM:
 
     def __semantic_similarity(self, userInput, knowledgebaseData) -> bool:
         """
-        Evaluate semantic similarity between user input and a stored question using SpaCy vectors.
+        Evaluates the semantic meaning between the user's query and a database entry.
 
-        Parameters:
-            userInput (str): The cleaned or filtered user query.
-            knowledgebaseData (str): A question stored in the knowledge base to compare against.
+        Args:
+            userInput (str): The filtered user query.
+            knowledgebaseData (str): The question from the database to compare against.
 
         Returns:
-            bool: True if semantic similarity exceeds 0.50 threshold, False otherwise.
-
-        Behavior:
-            - Uses SpaCy's vector-based similarity to compare both texts.
-            - Saves the similarity score internally for optional debugging or reporting.
+            bool: True if the SpaCy vector similarity exceeds 0.50, False otherwise.
         """
         if userInput is None or knowledgebaseData is None:
             return False

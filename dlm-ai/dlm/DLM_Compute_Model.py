@@ -4,19 +4,16 @@ import re
 import nltk
 from word2number import w2n
 
-def set_geometric_height(tokens, lower_tokens):
+def set_geometric_height(tokens, lower_tokens) -> list | None:
     """
-    Extract height value and its index from tokenized query.
-
-    Searches for 'height' keyword and extracts the numeric value immediately
-    before or after it, converting words to numbers if necessary.
+    Extracts the height value and its relative index from a tokenized query.
 
     Args:
-        tokens: Original token list from query
-        lower_tokens: Lowercased version of tokens
+        tokens (list): Original token list from the query.
+        lower_tokens (list): Lowercased version of tokens for matching.
 
     Returns:
-        list: [height_value, height_value_index] if found, None otherwise
+        list or None: [height_value, height_value_index] if found, otherwise None.
     """
     return_list = []
     height_value = None
@@ -56,16 +53,16 @@ def set_geometric_height(tokens, lower_tokens):
     else:
         return None
 
-def set_other_geometric_values(tokens, height_value_index):
+def set_other_geometric_values(tokens, height_value_index) -> list:
     """
-    Extract all numeric values from tokens except the height value.
+    Extracts all numeric values from tokens, excluding the identified height value.
 
     Args:
-        tokens: Token list from query
-        height_value_index: Index to skip (the height value position)
+        tokens (list): Token list from the query.
+        height_value_index (int): Index of the height value to skip.
 
     Returns:
-        list: All numeric values found (as floats), excluding height
+        list: All other numeric values found as floats.
     """
     other_values = []
     for i, token in enumerate(tokens):
@@ -79,19 +76,17 @@ def set_other_geometric_values(tokens, height_value_index):
                 other_values.append(float(token))
     return other_values
 
-def set_geometric_object_intel(self, lower_tokens):
+def set_geometric_object_intel(self, lower_tokens) -> list:
     """
-    Identify geometric shape and calculation type from query tokens.
+    Identifies the geometric shape and the target calculation (e.g., area, volume).
 
-    Uses fuzzy matching on bigrams and uni grams to detect shapes (e.g.,
-    'triangle', 'rectangular prism') and operation keywords (e.g., 'area',
-    'volume'). Handles common word endings like 'ular', 'ish', 'al'.
+    Uses fuzzy matching on unigrams and bigrams to detect shapes and operations, handling common suffix variations (e.g., '-ular', '-ish').
 
     Args:
-        lower_tokens: Lowercased token list from query
+        lower_tokens (list): Lowercased token list from the query.
 
     Returns:
-        list: Keywords describing the operation and shape (e.g., ['area', 'triangle'])
+        list: Keywords describing the operation and shape (e.g., ['area', 'triangle']).
     """
     object_intel = []
     common_endings = ["ular", "ish", "al"]  # some people might say "squarish" or "rectangular" etc
@@ -134,21 +129,18 @@ def set_geometric_object_intel(self, lower_tokens):
                 break
     return object_intel
 
-def display_geometric_inner_thought(object_intel, display_thought, height_value, other_values):
+def display_geometric_inner_thought(object_intel, display_thought, height_value, other_values) -> str:
     """
-    Print the bot's reasoning process for geometric calculations.
-
-    Displays identified shape, calculation type, height value, and other
-    dimensions if display_thought is True.
+    Prints the bot's internal reasoning for geometric calculations.
 
     Args:
-        object_intel: List containing calculation type and shape name
-        display_thought: Whether to print the thought process
-        height_value: Extracted height value or None
-        other_values: List of additional numeric dimensions
+        object_intel (list): List containing the calculation type and shape name.
+        display_thought (bool): Flag to enable console output.
+        height_value (float or None): The extracted height dimension.
+        other_values (list): Additional numeric dimensions.
 
     Returns:
-        str: The object name from object_intel[1]
+        str: The name of the identified geometric shape.
     """
     obj_name = object_intel[1]
     if display_thought:
@@ -163,22 +155,19 @@ def display_geometric_inner_thought(object_intel, display_thought, height_value,
             print(f"* No additional numerical values associated with the dimensions of the {obj_name} were given")
     return obj_name
 
-def compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel):
+def compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel) -> float | None:
     """
-    Calculate geometric result using identified shape's formula.
-
-    Maps extracted values to formula parameters, handles special cases like
-    'side' parameters and 'other' multi-value parameters, then computes the result.
+    Calculates the geometric result using the identified shape's specific formula.
 
     Args:
-        obj_name: Name of geometric shape
-        height_value: Height dimension or None
-        other_values: Additional numeric dimensions
-        display_thought: Whether to print error messages
-        object_intel: List with calculation type and shape for error reporting
+        obj_name (str): Name of the geometric shape.
+        height_value (float or None): Height dimension.
+        other_values (list): Additional numeric dimensions.
+        display_thought (bool): Flag to enable error message output.
+        object_intel (list): Calculation type and shape for contextual error reporting.
 
     Returns:
-        float: Calculated result rounded to 4 decimals, or None if computation fails
+        float or None: The calculated result rounded to 4 decimals, or None if inputs mismatch the formula.
     """
     formula = self._DLM__geometric_calculation_identifiers[obj_name]["formula"]
     params = self._DLM__geometric_calculation_identifiers[obj_name]["params"]
@@ -225,23 +214,18 @@ def compute_geometrically(self, obj_name, height_value, other_values, display_th
                 f"Unable to compute the {object_intel[0]} of the {obj_name} due to missing or mismatched values")
         return None
 
-def geometric_calculation(self, filtered_query, display_thought):  # returns float result or None
+def geometric_calculation(self, filtered_query, display_thought) -> float | None:  
     """
-    Perform geometric problems that will be called inside perform_advanced_CoT.
+    Orchestrates the full geometric calculation pipeline.
 
-    Parameters:
-        filtered_query (str): user query that has been filtered to have mostly computational details.
-        display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
+    Extracts dimensions, identifies the shape/operation, logs the thought process, and computes the final result.
+
+    Args:
+        filtered_query (str): The cleaned user query containing computational details.
+        display_thought (bool): Flag to enable Chain-of-Thought console output.
 
     Returns:
-        float: The result after computing the geometric calculation.
-
-    Behavior:
-        - Search through query to find specific keywords like 'area' or 'volume'.
-        - Then, search to find shape or object to perform math on like 'triangle' or 'square'.
-        - Find numbers associated with object details and store in appropriate list.
-        - Finally, find appropriate formula with identifiers and plug in and return answer.
-
+        float or None: The computed geometric result, or None if it fails.
     """
     tokens = filtered_query.split()
     lower_tokens = [t.lower() for t in tokens]
@@ -267,9 +251,13 @@ def geometric_calculation(self, filtered_query, display_thought):  # returns flo
     # compute and return result
     return compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel)
 
+def initialize_cot_variables() -> tuple:
+    """
+    Initializes data structures and keyword lists required for Chain-of-Thought reasoning.
 
-def initialize_cot_variables():
-    """Initialize all variables needed for Chain-of-Thought reasoning."""
+    Returns:
+        tuple: (persons_mentioned, keywords_mentioned, num_mentioned, operands_mentioned, arithmetic_ending_phrases)
+    """
     persons_mentioned = []
     keywords_mentioned = []
     num_mentioned = []
@@ -283,7 +271,18 @@ def initialize_cot_variables():
     ]
     return persons_mentioned, keywords_mentioned, num_mentioned, operands_mentioned, arithmetic_ending_phrases
 
-def pick_out_names(self, doc, persons_mentioned, filtered_query):
+def pick_out_names(self, doc, persons_mentioned, filtered_query) -> set:
+    """
+    Extracts proper nouns and recognized names from the query using SpaCy and NLTK.
+
+    Args:
+        doc (spacy.tokens.Doc): Initialized SpaCy NLP document of the query.
+        persons_mentioned (list): Buffer list to append identified person names.
+        filtered_query (str): The cleaned user query.
+
+    Returns:
+        set: A collection of all non-person proper nouns (items) extracted.
+    """
     # Have the bot pick out names mentioned (in order) using SpaCy and NLTK (for maximum coverage)
     items_mentioned = []
     for ent in doc.ents:
@@ -317,21 +316,29 @@ def pick_out_names(self, doc, persons_mentioned, filtered_query):
     items_mentioned = set(items_mentioned)
     return items_mentioned
 
+def display_initial_thought(display_thought, filtered_query) -> None:
+    """
+    Prints the introductory Chain-of-Thought message.
 
-def display_initial_thought(display_thought, filtered_query):
-    """Display initial thought process if requested."""
+    Args:
+        display_thought (bool): Flag to enable console output.
+        filtered_query (str): The stripped query being analyzed.
+    """
     if display_thought:
         print(f"I am presented with a more involved query asking me to do some form of computation")
         print("Let me think about this carefully and break it down so that I can solve it")
         print(f"I've trimmed away any extra words so I'm focusing on \"{filtered_query}\" now")
 
-
-def check_if_geometric_query(self, filtered_query, display_thought):
+def check_if_geometric_query(self, filtered_query, display_thought) -> tuple:
     """
-    Check if query is geometric and attempt to solve it.
+    Determines if the query is geometric and attempts to solve it if applicable.
+
+    Args:
+        filtered_query (str): The cleaned user query.
+        display_thought (bool): Flag to enable Chain-of-Thought console output.
 
     Returns:
-        tuple: (is_geometric_query, geometric_ans)
+        tuple: (is_geometric_query (bool), geometric_ans (float or None)).
     """
     words = filtered_query.lower().split()
     geometric_ans = None
@@ -354,12 +361,17 @@ def check_if_geometric_query(self, filtered_query, display_thought):
 
     return is_geometric_query, geometric_ans
 
-
-def extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned, operands_mentioned):
+def extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned, operands_mentioned) -> None:
     """
-    Extract arithmetic operands from the filtered query.
+    Extracts arithmetic operands (e.g., +, -) by matching keywords and symbols in the query.
 
-    Modifies keywords_mentioned and operands_mentioned lists in place.
+    Modifies the keywords_mentioned and operands_mentioned lists in-place.
+
+    Args:
+        filtered_query (str): The cleaned user query.
+        arithmetic_ending_phrases (list): Common concluding phrases to ignore or use for context.
+        keywords_mentioned (list): Buffer to append found operational keywords.
+        operands_mentioned (list): Buffer to append the mapped mathematical operators.
     """
     tokens_lower = filtered_query.lower().split()
     last_two = set(tokens_lower[-2:])
@@ -428,13 +440,17 @@ def extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_m
                 found_operand = False
                 break
 
-
-def extract_operands_from_ending_phrases(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned,
-                                         operands_mentioned):
+def extract_operands_from_ending_phrases(self, filtered_query, arithmetic_ending_phrases, keywords_mentioned, operands_mentioned) -> None:
     """
-    Fallback: extract operands from ending phrases if none found in main pass.
+    Acts as a fallback to extract mathematical operands based on concluding sentence phrases.
 
-    Modifies keywords_mentioned and operands_mentioned lists in place.
+    Modifies the keywords_mentioned and operands_mentioned lists in-place.
+
+    Args:
+        filtered_query (str): The cleaned user query.
+        arithmetic_ending_phrases (list): Contextual phrases indicating specific operations.
+        keywords_mentioned (list): Buffer to append found operational keywords.
+        operands_mentioned (list): Buffer to append the mapped mathematical operators.
     """
     if not operands_mentioned:
         for fq in filtered_query.split():
@@ -462,12 +478,16 @@ def extract_operands_from_ending_phrases(self, filtered_query, arithmetic_ending
             if operands_mentioned:
                 break
 
-
-def extract_numbers(self, filtered_query, operands_mentioned, num_mentioned):
+def extract_numbers(self, filtered_query, operands_mentioned, num_mentioned) -> None:
     """
-    Extract all numbers from the filtered query.
+    Extracts all numeric values from the query, converting text representations (e.g., 'half', 'triple') to floats.
 
-    Modifies num_mentioned list in place.
+    Modifies the num_mentioned list in-place.
+
+    Args:
+        filtered_query (str): The cleaned user query.
+        operands_mentioned (list): Currently identified mathematical operators.
+        num_mentioned (list): Buffer to append the extracted numerical values as strings.
     """
     text_nums = ["a", "an", "half", "double", "triple", "quadruple"]
     a_an_detected = False
@@ -504,12 +524,15 @@ def extract_numbers(self, filtered_query, operands_mentioned, num_mentioned):
     if a_an_detected and (num_mentioned.count("1.0") > 1 or len(num_mentioned) > 1):
         num_mentioned.remove("1.0")
 
-
-def handle_equals_operand(operands_mentioned, num_mentioned):
+def handle_equals_operand(operands_mentioned, num_mentioned) -> None:
     """
-    Handle special case for equals operand.
+    Adjusts the operands list for unit conversions or isolated equals signs.
 
-    Modifies operands_mentioned list in place.
+    Modifies the operands_mentioned list in-place.
+
+    Args:
+        operands_mentioned (list): Current list of mathematical operators.
+        num_mentioned (list): Current list of extracted numbers.
     """
     if ('=' in operands_mentioned) and (len(num_mentioned) < 2):
         operands_mentioned.clear()
@@ -518,13 +541,18 @@ def handle_equals_operand(operands_mentioned, num_mentioned):
         if '=' in operands_mentioned:
             operands_mentioned[:] = [op for op in operands_mentioned if op != '=']
 
-
-def check_missing_components(self, is_geometric_query, num_mentioned, operands_mentioned, display_thought):
+def check_missing_components(self, is_geometric_query, num_mentioned, operands_mentioned, display_thought) -> bool:
     """
-    Check if essential components are missing for computation.
+    Validates whether enough numeric and operational components exist to perform a calculation.
+
+    Args:
+        is_geometric_query (bool): Flag indicating if the query was successfully handled geometrically.
+        num_mentioned (list): Extracted numerical values.
+        operands_mentioned (list): Extracted mathematical operators.
+        display_thought (bool): Flag to enable console output.
 
     Returns:
-        bool: True if components are missing, False otherwise
+        bool: True if essential components are missing (computation should abort), False otherwise.
     """
     if (not is_geometric_query) and (any(not lst for lst in (num_mentioned, operands_mentioned)) or (
             '=' not in operands_mentioned and num_mentioned.__len__() < 2)):
@@ -538,10 +566,19 @@ def check_missing_components(self, is_geometric_query, num_mentioned, operands_m
         return True
     return False
 
+def display_extracted_components(display_thought, persons_mentioned, items_mentioned, is_geometric_query, num_mentioned, keywords_mentioned, operands_mentioned) -> None:
+    """
+    Prints the compiled list of entities, numbers, and operators found during analysis.
 
-def display_extracted_components(display_thought, persons_mentioned, items_mentioned, is_geometric_query, num_mentioned,
-                                 keywords_mentioned, operands_mentioned):
-    """Display all extracted components if thought display is enabled."""
+    Args:
+        display_thought (bool): Flag to enable console output.
+        persons_mentioned (set): Identified names.
+        items_mentioned (set): Identified objects.
+        is_geometric_query (bool): Flag indicating if the query is geometric.
+        num_mentioned (list): Extracted numerical values.
+        keywords_mentioned (list): Extracted operation keywords.
+        operands_mentioned (list): Extracted mathematical operators.
+    """
     if display_thought:
         print(
             f"1.) I see {', '.join(persons_mentioned) if persons_mentioned.__len__() >= 1 else 'no one'} mentioned as a person name; "
@@ -556,12 +593,15 @@ def display_extracted_components(display_thought, persons_mentioned, items_menti
                 f"4.) I see the keywords \"{'\" and \"'.join(keywords_mentioned)}\", meaning I need to perform a \"{'\" and \"'.join(operands_mentioned)}\" operation for this query; I'll use that to guide my calculation")
             print("Now I have the parts, so let me put it all together and solve")
 
-
-def reorder_numbers_by_indicators(filtered_query, num_mentioned):
+def reorder_numbers_by_indicators(filtered_query, num_mentioned) -> None:
     """
-    Move 'original' numbers to the front of the list.
+    Reorders extracted numbers, moving the 'original' or 'initial' value to the front of the list.
 
-    Modifies num_mentioned list in place.
+    Modifies the num_mentioned list in-place.
+
+    Args:
+        filtered_query (str): The cleaned user query.
+        num_mentioned (list): The list of extracted numerical string values.
     """
     indicators = {"original", "originally", "initial", "initially", "at first", "to begin with", "had",
                   "savings", "saving", "of"}
@@ -590,22 +630,24 @@ def reorder_numbers_by_indicators(filtered_query, num_mentioned):
             num_mentioned.remove(str(float(temp)))
         num_mentioned.insert(0, str(float(temp)))
 
-
-def compute_geometric_problem(self, geometric_ans):
+def compute_geometric_problem(self, geometric_ans) -> None:
     """
-    Display geometric problem result.
+    Finalizes and logs a successful geometric computation.
 
-    Modifies self._DLM__successfully_computed.
+    Args:
+        geometric_ans (float): The previously calculated geometric result.
     """
     print(f"Geometric Answer: {geometric_ans}")
     self._DLM__successfully_computed = True
 
-
-def compute_conversion_problem(self, filtered_query, num_mentioned, operands_mentioned, display_thought):
+def compute_conversion_problem(self, filtered_query, num_mentioned, display_thought) -> None:
     """
-    Handle unit conversion problems.
+    Executes a unit conversion calculation by identifying source and target units in the query.
 
-    Modifies self._DLM__successfully_computed.
+    Args:
+        filtered_query (str): The cleaned user query.
+        num_mentioned (list): Extracted numerical values.
+        display_thought (bool): Flag to enable Chain-of-Thought console output.
     """
     try:
         tokens = filtered_query.lower().split()
@@ -681,12 +723,14 @@ def compute_conversion_problem(self, filtered_query, num_mentioned, operands_men
     except SyntaxError:
         print("Oops! I still mix up conversions and arithmetic sometimes. Working on it!")
 
-
-def compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_mentioned):
+def compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_mentioned) -> None:
     """
-    Handle regular arithmetic operations.
+    Constructs and evaluates a standard mathematical expression from extracted numbers and operands.
 
-    Modifies self._DLM__successfully_computed.
+    Args:
+        filtered_query (str): The cleaned user query.
+        num_mentioned (list): Extracted numerical values.
+        operands_mentioned (list): Extracted mathematical operators.
     """
     parts = []
     for i, num in enumerate(num_mentioned):
@@ -709,12 +753,12 @@ def compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_men
     except SyntaxError:
         print(f"Something about that stumped me. I'll need to learn more to handle it properly.")
 
-
-def handle_computation_failure(self, keywords_mentioned):
+def handle_computation_failure(self, keywords_mentioned) -> None:
     """
-    Handle cases where computation cannot be completed.
+    Logs a failure message when the computation engine lacks the context to solve the problem.
 
-    Modifies self._DLM__successfully_computed.
+    Args:
+        keywords_mentioned (list): Extracted operation keywords to display in the error message.
     """
     self._DLM__successfully_computed = False
     print(f"{random.choice(self._DLM__fallback_responses)}")
@@ -722,23 +766,17 @@ def handle_computation_failure(self, keywords_mentioned):
         f"However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.")
     print(f"That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?")
 
-
-def perform_advanced_CoT(self, filtered_query, display_thought):
+def perform_advanced_CoT(self, filtered_query, display_thought) -> None:
     """
-    Perform advanced Chain-of-Thought (CoT) reasoning to solve arithmetic or unit conversion problems.
+    Orchestrates the entire Chain-of-Thought reasoning process to solve mathematical word problems.
 
-    Parameters:
-        filtered_query (str): The cleaned user input, expected to be a math or logic-based question.
-        display_thought (bool): Indicates whether the user wants to have the bot display its thought process or just give the answer.
+    This pipeline extracts entities, maps textual phrases to mathematical operations, isolates numerical 
+    values, and routes the data to geometric, conversion, or arithmetic sub-engines. It directly handles 
+    console output for the reasoning process based on the display flag.
 
-    Behavior:
-        - Simulates step-by-step reasoning to solve arithmetic word problems without relying on memorized answers.
-        - Extracts entities including person names, items, numbers, and operations using SpaCy, NLTK, and regex.
-        - Detects arithmetic operations via lexical and semantic matching with predefined keyword sets.
-        - Handles both numeric digits and text-based numbers (e.g., "three", "double").
-        - Supports simple arithmetic expressions and unit conversions (e.g., inches to cm).
-        - Prints the interpreted steps, logical inferences (if display_thought is True), and the final computed result with contextual explanations.
-        - Displays fallback messages if the query is incomplete or too ambiguous to solve.
+    Args:
+        filtered_query (str): The cleaned, logic-based user query.
+        display_thought (bool): Flag to enable step-by-step reasoning output to the console.
     """
     # Initialize variables
     persons_mentioned, keywords_mentioned, num_mentioned, operands_mentioned, arithmetic_ending_phrases = initialize_cot_variables()
