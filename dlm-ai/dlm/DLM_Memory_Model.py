@@ -1,17 +1,12 @@
 def get_category(self, exact_question):  # returns category as a string or None
     """
-    Retrieve the category (question type) associated with a specific question from the SQLite knowledge base.
+    Retrieves the category tag for a specific question from the knowledge base.
 
-    Parameters:
-        exact_question (str): The exact question text used to search the database.
+    Args:
+        exact_question (str): The exact question string to look up.
 
     Returns:
-        str or None: The associated category if found (e.g., 'yesno', 'definition'); otherwise, None.
-
-    Behavior:
-        - Connects to the SQLite database.
-        - Performs a lookup for the given question.
-        - Returns the corresponding category tag if a match exists.
+        str or None: The category (e.g., 'yesno', 'definition') if found, otherwise None.
     """
     if not hasattr(self, '_DLM__cursor') or not self._DLM__cursor:
         return None
@@ -34,18 +29,13 @@ def get_category(self, exact_question):  # returns category as a string or None
 
 def get_specific_question(self, exact_answer):  # returns question as a string or None
     """
-    Retrieve the original question associated with a given answer from the SQLite knowledge base.
+    Retrieves the original question associated with an exact answer from the knowledge base.
 
-    Parameters:
-        exact_answer (str): The exact answer text used to search the database.
+    Args:
+        exact_answer (str): The exact answer string to look up.
 
     Returns:
-        str or None: The corresponding question string if found; otherwise, None.
-
-    Behavior:
-        - Connects to the SQLite database.
-        - Searches for a question where the answer matches exactly.
-        - Returns the first matching question, or None if no match exists.
+        str or None: The corresponding question if found, otherwise None.
     """
     if not hasattr(self, '_DLM__cursor') or not self._DLM__cursor:
         return None
@@ -66,24 +56,24 @@ def get_specific_question(self, exact_answer):  # returns question as a string o
         print(f"System: Database Read Error in get_specific_question: {e}")
         return None
 
-def learn(self, expectation, category):  # no return, void
+def learn(self, question, expectation, category):  
     """
-    Store a new question-answer-category entry in the SQLite knowledge base.
-    If the question already exists and the trainer gives a new response, it updates the answer and category of that existing question
+    Saves or updates a question-answer pair and its category in the knowledge base.
 
-    Parameters:
-        expectation (str): The expected answer or response to the current user query.
-        category (str): The type of question (e.g., 'yesno', 'definition', 'process', etc.).
+    If the question already exists, its answer and category are overwritten (Upsert).
 
-    Behavior:
-        - Inserts the current stripped user query, along with its answer and category,
-          into the SQLite database.
-        - Uses 'INSERT OR IGNORE' to prevent duplicate entries.
+    Args:
+        question (str): The stripped user query to store.
+        expectation (str): The expected correct answer.
+        category (str): The type of question (e.g., 'yesno', 'process', 'definition').
+
+    Returns:
+        bool: True if the database write was successful, False otherwise.
     """
     # we need to both run cursor and connection
     if not hasattr(self, '_DLM__cursor') or not self._DLM__conn:
         print("System: Error - Cannot learn, database connection lost.")
-        return
+        return False
 
     try:
         self._DLM__cursor.execute(
@@ -94,10 +84,12 @@ def learn(self, expectation, category):  # no return, void
                 answer = excluded.answer,
                 category = excluded.category
             """,
-            (self._DLM__special_stripped_query, expectation, category)
+            (question, expectation, category)
         )
 
         self._DLM__conn.commit()
-
+        return True
+    
     except Exception as e:
         print(f"System: Database Write Error in learn: {e}")
+        return False
