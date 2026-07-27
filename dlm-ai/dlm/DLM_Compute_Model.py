@@ -129,7 +129,7 @@ def set_geometric_object_intel(self, lower_tokens) -> list:
                 break
     return object_intel
 
-def display_geometric_inner_thought(object_intel, display_thought, height_value, other_values) -> str:
+def display_geometric_inner_thought(object_intel, display_thought, height_value, other_values) -> list:
     """
     Prints the bot's internal reasoning for geometric calculations.
 
@@ -140,7 +140,7 @@ def display_geometric_inner_thought(object_intel, display_thought, height_value,
         other_values (list): Additional numeric dimensions.
 
     Returns:
-        str: The name of the identified geometric shape.
+        list: The name and compute type of the identified geometric shape.
     """
     obj_name = object_intel[1]
     if display_thought:
@@ -153,7 +153,7 @@ def display_geometric_inner_thought(object_intel, display_thought, height_value,
             print(f"* Additional numerical values associated with the dimensions of the {obj_name} object is {' and '.join(str(v) for v in other_values)}")
         else:
             print(f"* No additional numerical values associated with the dimensions of the {obj_name} were given")
-    return obj_name
+    return object_intel
 
 def compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel) -> float | None:
     """
@@ -246,7 +246,8 @@ def geometric_calculation(self, filtered_query, display_thought) -> float | None
     object_intel = set_geometric_object_intel(self, lower_tokens)
 
     # display thought process
-    obj_name = display_geometric_inner_thought(object_intel, display_thought, height_value, other_values)
+    self._DLM__compute_obj_name = display_geometric_inner_thought(object_intel, display_thought, height_value, other_values)
+    obj_name = self._DLM__compute_obj_name[1]
 
     # compute and return result
     return compute_geometrically(self, obj_name, height_value, other_values, display_thought, object_intel)
@@ -387,13 +388,30 @@ def extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_m
             keywords_mentioned.append(fq_l)
             continue
 
+        if fq_l == "gave":
+            # if 'away' is in the sentence, it is definitely subtraction
+            if "away" in filtered_query.lower():
+                operands_mentioned.append("-")
+                keywords_mentioned.append("Gave Away")
+            # if they 'had' a baseline amount, then they are receiving
+            elif "already" in filtered_query.lower() or "had" in filtered_query.lower():
+                operands_mentioned.append("+")
+                keywords_mentioned.append("Gave (Recieved)")
+
+            else:
+                operands_mentioned.append("-")
+                keywords_mentioned.append("Gave")
+
+            found_operand = True
+            continue
+
         for operand, keywords in self._DLM__computation_identifiers.items():
             for kw in keywords:
                 p1 = self._DLM__nlp(kw)
                 p2 = self._DLM__nlp(fq_l)
                 word_num_surrounded = re.search(rf'\d+\s*{fq.lower()}\s*\d+', filtered_query.lower())
 
-                # Direct match or lemma match
+                # direct match or lemma match
                 if (kw.lower() == fq.lower()) or p1[0].lemma_ == p2[0].lemma_:
                     keywords_mentioned.append(kw.title())
                     if kw.lower() == "out of":
@@ -407,7 +425,7 @@ def extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_m
                         found_operand = True
                         break
 
-                # Vector + string similarity
+                # vector + string similarity
                 if p1.vector_norm != 0 and p2.vector_norm != 0 and (
                         p1.similarity(p2) > 0.80 and difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.40):
                     keywords_mentioned.append(kw.title())
@@ -422,7 +440,7 @@ def extract_operands(self, filtered_query, arithmetic_ending_phrases, keywords_m
                         found_operand = True
                         break
 
-                # Fallback: high string similarity
+                # fallback: high string similarity
                 elif difflib.SequenceMatcher(None, kw, fq_l).ratio() > 0.80:
                     keywords_mentioned.append(kw.title())
                     if kw.lower() == "out of":
@@ -494,9 +512,12 @@ def extract_numbers(self, filtered_query, operands_mentioned, num_mentioned) -> 
 
     tokens = filtered_query.lower().split()
     for token in tokens:
-        if re.fullmatch(r"\d+(\.\d+)?", token):
-            num_mentioned.append(str(float(token)))
+        try:
+            num = float(token)
+            num_mentioned.append(str(num))
             continue
+        except ValueError:
+            pass
 
         try:
             num = w2n.word_to_num(token)
@@ -615,15 +636,21 @@ def reorder_numbers_by_indicators(filtered_query, num_mentioned) -> None:
             if idx > 0 and token != "of":
                 candidate = lower_tokens[idx - 1]
                 try:
-                    temp = (w2n.word_to_num(candidate))
+                    temp = float(candidate)
                 except ValueError:
-                    pass
+                    try:
+                        temp = w2n.word_to_num(candidate)
+                    except ValueError:
+                        pass
             if idx < len(tokens) - 1:
                 candidate = lower_tokens[idx + 1]
                 try:
-                    temp = (w2n.word_to_num(candidate))
+                    temp = float(candidate)
                 except ValueError:
-                    pass
+                    try:
+                        temp = w2n.word_to_num(candidate)
+                    except ValueError:
+                        pass
 
     if temp is not None:
         if str(float(temp)) in num_mentioned:
@@ -637,7 +664,8 @@ def compute_geometric_problem(self, geometric_ans) -> None:
     Args:
         geometric_ans (float): The previously calculated geometric result.
     """
-    print(f"Geometric Answer: {geometric_ans}")
+    obj_intel = self._DLM__compute_obj_name
+    print(f"{' of the '.join(obj_intel)}: {geometric_ans}")
     self._DLM__successfully_computed = True
 
 def compute_conversion_problem(self, filtered_query, num_mentioned, display_thought) -> None:
@@ -715,8 +743,8 @@ def compute_conversion_problem(self, filtered_query, num_mentioned, display_thou
             if display_thought:
                 print(
                     f"I need to take {num0} and multiply it by {self._DLM__units[source_key]}. Finally, I divide by {self._DLM__units[target_key]} and I got my answer")
-            expr = f"{num_mentioned[0]} {source_key}(s) ==> {round(result, 2)} {target_key}(s)"
-            print(f"Conversion Answer: {expr}")
+            expr = f"{num_mentioned[0]} {source_key}(s) is approximately {round(result, 2)} {target_key}(s)"
+            print(f"{expr}")
             self._DLM__successfully_computed = True
         else:
             print(f"Could not identify both source and target units.")
@@ -733,25 +761,50 @@ def compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_men
         operands_mentioned (list): Extracted mathematical operators.
     """
     parts = []
+    fq_lower = filtered_query.lower()
+
     for i, num in enumerate(num_mentioned):
-        parts.append(str(num))
-        if i < (len(num_mentioned) - 1) and ("average" in filtered_query.lower()):
+        val = str(num)
+
+        if i > 0 and len(parts) >= 2:
+            prev_operator = parts[-1]
+            prev_num = parts[-2]
+
+            if prev_operator in ['+', '-']:
+                if val == "0.5" and "half" in fq_lower:
+                    val = f"({prev_num} * 0.5)"
+                elif val == "2.0" and "double" in fq_lower:
+                    val = f"({prev_num} * 2.0)"
+                elif val == "3.0" and "triple" in fq_lower:
+                    val = f"({prev_num}) * 3.0"
+                elif val == "4.0" and "quadruple" in fq_lower:
+                    val = f"({prev_num}) * 4.0"
+        parts.append(val)
+
+        # determine the next operator to append
+        if i < (len(num_mentioned) - 1) and ("average" in fq_lower):
             parts.append("+")
         elif i < (len(num_mentioned) - 1) and (len(operands_mentioned) == 1):
             parts.append(operands_mentioned[0])
         elif i < len(operands_mentioned):
             parts.append(operands_mentioned[i])
-    expr = " ".join(parts)
+
+    expr = ' '.join(parts)
 
     try:
         result = eval(expr)
-        if "average" in filtered_query.lower():
+        if "average" in fq_lower:
             expr = "(" + expr + ") / " + str(len(num_mentioned))
             result /= len(num_mentioned)
-        print(f"Arithmetic Answer: {expr} = {result}")
+        prefix = random.choice(self._DLM__arit_output_prefixes)
+        print(f"{prefix} {expr} = {result}")
         self._DLM__successfully_computed = True
+
     except SyntaxError:
         print(f"Something about that stumped me. I'll need to learn more to handle it properly.")
+    except ZeroDivisionError:
+        self._DLM__computation_feedback = "I cannot divide by zero. That is mathematically impossible!"
+        self._DLM__successfully_computed = False
 
 def handle_computation_failure(self, keywords_mentioned) -> None:
     """
@@ -761,10 +814,45 @@ def handle_computation_failure(self, keywords_mentioned) -> None:
         keywords_mentioned (list): Extracted operation keywords to display in the error message.
     """
     self._DLM__successfully_computed = False
-    print(f"{random.choice(self._DLM__fallback_responses)}")
-    print(
-        f"However, while I was trying to understand the math, I ran into \"{'" and "'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.")
-    print(f"That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?")
+    fallback = random.choice(self._DLM__fallback_responses)
+    feedback_msg = (
+        f"{fallback}\n"
+        f"However, while I was trying to understand the math, I ran into \"{'\" and \"'.join(keywords_mentioned)}\", which I use to connect keywords to math operations.\n"
+        f"That might've confused me a bit, maybe try leaving one of those out or rephrase it to make it clearer?"
+    )
+    
+    self._DLM__computation_feedback = feedback_msg
+
+def sanitize_operands(operands_mentioned, num_mentioned) -> None:
+    """
+    Cleans up the extracted operands list to prevent computation crashes from 
+    over-matching synonyms (e.g., finding ['/', '/'] for "split equally").
+    
+    Modifies operands_mentioned in place.
+    """
+    if not operands_mentioned or not num_mentioned:
+        return
+
+    # remove '=' if other actual math operators exist (filters out accidental unit matches)
+    if len(set(operands_mentioned)) > 1 and '=' in operands_mentioned:
+        operands_mentioned[:] = [op for op in operands_mentioned if op != '=']
+
+    op_counts = {}
+    for op in operands_mentioned:
+        op_counts[op] = op_counts.get(op, 0) + 1
+
+    # collapse consecutive identical operands (e.g., ['/', '/'] to ['/'])
+    cleaned = []
+    for op in operands_mentioned:
+        if not cleaned or cleaned[-1] != op:
+            cleaned.append(op)
+    operands_mentioned[:] = cleaned
+    
+    # if we still have more operands than needed, truncate them by prioritizing the dominent intent
+    required_ops = max(1, len(num_mentioned) - 1)
+    if len(operands_mentioned) > required_ops:
+        operands_mentioned.sort(key=(lambda x: op_counts.get(x, 0)), reverse=True)
+        operands_mentioned[:] = operands_mentioned[:required_ops]
 
 def perform_advanced_CoT(self, filtered_query, display_thought) -> None:
     """
@@ -801,6 +889,8 @@ def perform_advanced_CoT(self, filtered_query, display_thought) -> None:
         extract_numbers(self, filtered_query, operands_mentioned, num_mentioned)
         handle_equals_operand(operands_mentioned, num_mentioned)
 
+        sanitize_operands(operands_mentioned, num_mentioned)
+
     # Check if components are missing
     if check_missing_components(self, is_geometric_query, num_mentioned, operands_mentioned, display_thought):
         return
@@ -816,7 +906,7 @@ def perform_advanced_CoT(self, filtered_query, display_thought) -> None:
     if is_geometric_query:
         compute_geometric_problem(self, geometric_ans)
     elif len(num_mentioned) == 1 and len(operands_mentioned) == 1:
-        compute_conversion_problem(self, filtered_query, num_mentioned, operands_mentioned, display_thought)
+        compute_conversion_problem(self, filtered_query, num_mentioned, display_thought)
     elif len(num_mentioned) >= 2 and (
             len(operands_mentioned) == (len(num_mentioned) - 1) or len(operands_mentioned) == 1):
         compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_mentioned)

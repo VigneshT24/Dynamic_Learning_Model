@@ -1,29 +1,29 @@
 import os
 import io
 import contextlib
-os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["HF_HUB_VERBOSITY"] = "error"
-import warnings
-warnings.filterwarnings("ignore")
-import logging
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
-from transformers.utils import logging as hf_logging
-hf_logging.disable_progress_bar()
-hf_logging.set_verbosity_error()
 import difflib
 import string
 import random
 import spacy
 import sqlite3
-from DLM_Compute_Model import perform_advanced_CoT
-from DLM_Memory_Model import get_category
-from DLM_Memory_Model import get_specific_question
-from DLM_Memory_Model import learn
+import warnings
+import logging
 import math
+from transformers.utils import logging as hf_logging
+from .DLM_Compute_Model import perform_advanced_CoT
+from .DLM_Memory_Model import get_category
+from .DLM_Memory_Model import get_specific_question
+from .DLM_Memory_Model import learn
 from transformers import pipeline
 from better_profanity import profanity
 from nltk.corpus import names
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["HF_HUB_VERBOSITY"] = "error"
+warnings.filterwarnings("ignore")
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+hf_logging.disable_progress_bar()
+hf_logging.set_verbosity_error()
 
 
 class DLM:
@@ -55,7 +55,16 @@ class DLM:
     __successfully_computed = False # for when computation model was able to give an answer to a mathematical problem
     __try_compute = False # if the bot tried "memory" model first then decided to try "compute" model
     __try_memory = False # if the bot tried "compute" model first then decided to try "memory" model
-
+    __compute_obj_name = None
+    __computation_feedback = ""
+    __arit_output_prefixes = [
+                "The math works out to:",
+                "Result of the calculation:",
+                "Here is the math:",
+                "It comes out to:",
+                "Calculated result:"
+                ]
+    
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
         "Hmm, that's a great question! I might need more context or details to answer it.",
@@ -412,6 +421,7 @@ class DLM:
         else:
             self.__filename = db_filename
         self.__mode = mode
+        self.__computation_feedback = ""
 
         try:
             self.__conn = sqlite3.connect(self.__filename, check_same_thread=False)
@@ -434,7 +444,7 @@ class DLM:
         except Exception:
             pass  # Suppress errors during destruction to prevent noisy exit
 
-    def __create_table_if_missing(self):
+    def __create_table_if_missing(self) -> None:
         """
         Ensures the SQLite 'knowledge_base' table exists and has the required schema.
         Automatically adds the 'category' column to legacy databases.
@@ -477,10 +487,11 @@ class DLM:
 
         # remove filler words
         filtered_words = []
+        compute_preserve = {"had", "have", "has", "already", "now", "of", "originally", "initial", "initially"}
         for i, word in enumerate(words):
             word_lowered = word.lower()
 
-            # allow exceptions ONLY in first position:
+            # allow exceptions only in first position:
             if i == 0 and word_lowered in self.__exception_fillers:
                 filtered_words.append(word)
 
@@ -491,7 +502,7 @@ class DLM:
                                         for kws in self.__computation_identifiers.values()
                                         for kw in kws)
 
-                if word_lowered not in self.__filler_words or (self.__model == "compute" and is_computation_kw):
+                if word_lowered not in self.__filler_words or (self.__model == "compute" and (is_computation_kw or word_lowered in compute_preserve)):
                     filtered_words.append(word)
 
         # remove duplicates while preserving order (numbers excluded)
@@ -511,7 +522,7 @@ class DLM:
         # join the remaining words back into a string
         return " ".join(unique_words)
 
-    def __set_sentiment_tone(self, orig_input):
+    def __set_sentiment_tone(self, orig_input) -> None:
         """
         Analyzes punctuation and profanity to determine the user's emotional state.
 
@@ -541,7 +552,7 @@ class DLM:
             else:
                 self.__tone = ""
 
-    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought):
+    def __generate_thought(self, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought) -> None:
         """
         Simulates and captures the Chain-of-Thought (CoT) reasoning process.
 
@@ -557,7 +568,6 @@ class DLM:
             display_thought (bool): Flag enabling CoT generation.
         """
         if display_thought:
-            print("\nThought Process:")
             if filtered_query is None or filtered_query == "":
                 print(
                     f"I couldn't pick out any context or clear topic. If I see a match in my database I will respond with that, or else I have no clue!")
@@ -582,11 +592,9 @@ class DLM:
                     identifier = identifier.split()
 
                     if " ".join(identifier) == "":
-                        print(
-                            f"The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.")
+                        print(f"The user starts their query with \"{interrogative_start.title()}\", but I couldn't pick out a clear topic or context.")
                     else:
-                        print(
-                            f"The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{" ".join(identifier).title()}\".")
+                        print(f"The user starts their query with \"{interrogative_start.title()}\" and they are asking about \"{' '.join(identifier).title()}\".")
                     print("Let me think about this carefully...")
 
                     for s in special_start:
@@ -596,7 +604,7 @@ class DLM:
                             if (s_input.vector_norm != 0 and u_input.vector_norm != 0) and (
                                     s_input.similarity(u_input) > 0.60):
                                 print(
-                                    f"It seems like they want a {s} of \"{" ".join(identifier).title()}\".")
+                                    f"It seems like they want a {s} of \"{' '.join(identifier).title()}\".")
 
                     self.__semantic_similarity(self.__special_stripped_query, best_match_question)
                     spacy_proceed = self.__nlp_similarity_value is not None
@@ -625,7 +633,7 @@ class DLM:
         elif self.__model == "compute":
             perform_advanced_CoT(self, filtered_query, display_thought)
 
-    def __generate_response(self, best_match_answer, best_match_question):
+    def __generate_response(self, best_match_answer, best_match_question) -> str:
         """
         Generates a dynamic, human-like response based on the category of the matched answer.
 
@@ -811,7 +819,6 @@ class DLM:
         # calls the learn method from memory model file
         return learn(self, question, expected_answer, category)
 
-
     def ask(self, query, display_thought) -> dict: 
         """
         Process a user query and return a state-signaling dictionary containing the response and reasoning.
@@ -973,7 +980,12 @@ class DLM:
                 if self.__successfully_computed:
                     response_data["status"] = "resolved"
                 else:
-                    print(random.choice(self.__fallback_responses))
+                    if self.__computation_feedback != "":
+                        print(self.__computation_feedback)
+                        self.__computation_feedback = ""
+                    else:
+                        print(random.choice(self.__fallback_responses))
+                        
                     response_data["status"] = "needs_teaching"
                     
                 self.__try_compute = False
@@ -988,7 +1000,8 @@ class DLM:
             lines = full_thought.split("\n")
             thought_lines = []
             for line in lines:
-                if "Answer:" in line:
+                if "Answer:" in line or (" of the " in line and ":" in line) or (" is approximately " in line) \
+                    or any(p in line for p in self.__arit_output_prefixes):
                     final_answer += line + "\n"
                 else:
                     thought_lines.append(line)

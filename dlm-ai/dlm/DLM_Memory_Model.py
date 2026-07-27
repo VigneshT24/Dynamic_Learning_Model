@@ -1,4 +1,4 @@
-def get_category(self, exact_question):  # returns category as a string or None
+def get_category(self, exact_question) -> str | None:  # returns category as a string or None
     """
     Retrieves the category tag for a specific question from the knowledge base.
 
@@ -26,8 +26,7 @@ def get_category(self, exact_question):  # returns category as a string or None
         print(f"System: Database Read Error in get_category: {e}")
         return None
 
-
-def get_specific_question(self, exact_answer):  # returns question as a string or None
+def get_specific_question(self, exact_answer) -> str | None:  # returns question as a string or None
     """
     Retrieves the original question associated with an exact answer from the knowledge base.
 
@@ -56,7 +55,7 @@ def get_specific_question(self, exact_answer):  # returns question as a string o
         print(f"System: Database Read Error in get_specific_question: {e}")
         return None
 
-def learn(self, question, expectation, category):  
+def learn(self, question, expectation, category) -> bool:  
     """
     Saves or updates a question-answer pair and its category in the knowledge base.
 
