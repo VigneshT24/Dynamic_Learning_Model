@@ -26,12 +26,13 @@ Whether you're building a student support bot, a domain-specific assistant, or a
 ## Table of Contents
 
 - [Installation](#installation)
-- [Initialization & Parameters](#initialization_&_parameters)
-- [Response Architecture](#response_architecture)
-- [Implementation Example](#implementation_example)
-- [Training Guidelines](#training_guidelines)
-- [Important Notices](#important_notices)
+- [Initialization & Parameters](#initialization--parameters)
+- [Response Architecture](#response-architecture)
+- [Implementation Example](#implementation-example)
+- [Training Guidelines](#training-guidelines)
+- [Important Notices](#important-notices)
 - [License](#license)
+- [Disclaimer](#disclaimer)
 
 ## Installation
 
@@ -128,7 +129,7 @@ while True:
 **`"apply"` mode** (deployment/production use after training):
 
 ```python
-from DLM import DLM
+from dlm import DLM
 
 # Initialize in apply mode (deployment/production)
 bot = DLM("apply", "knowledge.db") # initializing with a custom DB is optional
