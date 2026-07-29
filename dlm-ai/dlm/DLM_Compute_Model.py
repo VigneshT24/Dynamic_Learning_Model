@@ -753,58 +753,69 @@ def compute_conversion_problem(self, filtered_query, num_mentioned, display_thou
 
 def compute_arithmetic_problem(self, filtered_query, num_mentioned, operands_mentioned) -> None:
     """
-    Constructs and evaluates a standard mathematical expression from extracted numbers and operands.
+    TEMPORARILY DISABLED
 
-    Args:
-        filtered_query (str): The cleaned user query.
-        num_mentioned (list): Extracted numerical values.
-        operands_mentioned (list): Extracted mathematical operators.
+    Users can still perform geometric and conversion calculations, not arithmetic.
+
+    There will be an update soon, which will include a new compute model pipeline/architecture that can handle ambiguity more efficiently.
     """
-    parts = []
-    fq_lower = filtered_query.lower()
+    self._DLM__successfully_computed = False
+    self._DLM__computation_feedback = "I am undergoing a compute model architecture change, therefore, I cannot perform arithmetic problems. " \
+                                      "However, I can still perform geometric and conversion problems. We will get back with a more efficient " \
+                                      "architecture that can handle ambiguity better."
+    # """
+    # Constructs and evaluates a standard mathematical expression from extracted numbers and operands.
 
-    for i, num in enumerate(num_mentioned):
-        val = str(num)
+    # Args:
+    #     filtered_query (str): The cleaned user query.
+    #     num_mentioned (list): Extracted numerical values.
+    #     operands_mentioned (list): Extracted mathematical operators.
+    # """
+    # parts = []
+    # fq_lower = filtered_query.lower()
 
-        if i > 0 and len(parts) >= 2:
-            prev_operator = parts[-1]
-            prev_num = parts[-2]
+    # for i, num in enumerate(num_mentioned):
+    #     val = str(num)
 
-            if prev_operator in ['+', '-']:
-                if val == "0.5" and "half" in fq_lower:
-                    val = f"({prev_num} * 0.5)"
-                elif val == "2.0" and "double" in fq_lower:
-                    val = f"({prev_num} * 2.0)"
-                elif val == "3.0" and "triple" in fq_lower:
-                    val = f"({prev_num}) * 3.0"
-                elif val == "4.0" and "quadruple" in fq_lower:
-                    val = f"({prev_num}) * 4.0"
-        parts.append(val)
+    #     if i > 0 and len(parts) >= 2:
+    #         prev_operator = parts[-1]
+    #         prev_num = parts[-2]
 
-        # determine the next operator to append
-        if i < (len(num_mentioned) - 1) and ("average" in fq_lower):
-            parts.append("+")
-        elif i < (len(num_mentioned) - 1) and (len(operands_mentioned) == 1):
-            parts.append(operands_mentioned[0])
-        elif i < len(operands_mentioned):
-            parts.append(operands_mentioned[i])
+    #         if prev_operator in ['+', '-']:
+    #             if val == "0.5" and "half" in fq_lower:
+    #                 val = f"({prev_num} * 0.5)"
+    #             elif val == "2.0" and "double" in fq_lower:
+    #                 val = f"({prev_num} * 2.0)"
+    #             elif val == "3.0" and "triple" in fq_lower:
+    #                 val = f"({prev_num}) * 3.0"
+    #             elif val == "4.0" and "quadruple" in fq_lower:
+    #                 val = f"({prev_num}) * 4.0"
+    #     parts.append(val)
 
-    expr = ' '.join(parts)
+    #     # determine the next operator to append
+    #     if i < (len(num_mentioned) - 1) and ("average" in fq_lower):
+    #         parts.append("+")
+    #     elif i < (len(num_mentioned) - 1) and (len(operands_mentioned) == 1):
+    #         parts.append(operands_mentioned[0])
+    #     elif i < len(operands_mentioned):
+    #         parts.append(operands_mentioned[i])
 
-    try:
-        result = eval(expr)
-        if "average" in fq_lower:
-            expr = "(" + expr + ") / " + str(len(num_mentioned))
-            result /= len(num_mentioned)
-        prefix = random.choice(self._DLM__arit_output_prefixes)
-        print(f"{prefix} {expr} = {result}")
-        self._DLM__successfully_computed = True
+    # expr = ' '.join(parts)
 
-    except SyntaxError:
-        print(f"Something about that stumped me. I'll need to learn more to handle it properly.")
-    except ZeroDivisionError:
-        self._DLM__computation_feedback = "I cannot divide by zero. That is mathematically impossible!"
-        self._DLM__successfully_computed = False
+    # try:
+    #     result = eval(expr)
+    #     if "average" in fq_lower:
+    #         expr = "(" + expr + ") / " + str(len(num_mentioned))
+    #         result /= len(num_mentioned)
+    #     prefix = random.choice(self._DLM__arit_output_prefixes)
+    #     print(f"{prefix} {expr} = {result}")
+    #     self._DLM__successfully_computed = True
+
+    # except SyntaxError:
+    #     print(f"Something about that stumped me. I'll need to learn more to handle it properly.")
+    # except ZeroDivisionError:
+    #     self._DLM__computation_feedback = "I cannot divide by zero. That is mathematically impossible!"
+    #     self._DLM__successfully_computed = False
 
 def handle_computation_failure(self, keywords_mentioned) -> None:
     """
