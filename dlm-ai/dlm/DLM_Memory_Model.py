@@ -23,7 +23,7 @@ def get_category(self, exact_question) -> str | None:  # returns category as a s
             return None  # question not found
 
     except Exception as e:
-        print(f"System: Database Read Error in get_category: {e}")
+        print(f"[SYSTEM]: Database Read Error in get_category: {e}")
         return None
 
 def get_specific_question(self, exact_answer) -> str | None:  # returns question as a string or None
@@ -52,7 +52,7 @@ def get_specific_question(self, exact_answer) -> str | None:  # returns question
             return None
 
     except Exception as e:
-        print(f"System: Database Read Error in get_specific_question: {e}")
+        print(f"[SYSTEM]: Database Read Error in get_specific_question: {e}")
         return None
 
 def learn(self, question, expectation, category) -> bool:  
@@ -71,7 +71,7 @@ def learn(self, question, expectation, category) -> bool:
     """
     # we need to both run cursor and connection
     if not hasattr(self, '_DLM__cursor') or not self._DLM__conn:
-        print("System: Error - Cannot learn, database connection lost.")
+        print("[SYSTEM]: Error - Cannot learn, database connection lost.")
         return False
 
     try:
@@ -90,5 +90,5 @@ def learn(self, question, expectation, category) -> bool:
         return True
     
     except Exception as e:
-        print(f"System: Database Write Error in learn: {e}")
+        print(f"[SYSTEM]: Database Write Error in learn: {e}")
         return False

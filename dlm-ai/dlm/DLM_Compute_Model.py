@@ -17,10 +17,6 @@ def get_db_path():
 
 COMPUTE_DB_PATH = get_db_path()
 
-# initialize the embedder and llm
-llm = ChatOllama(model='llama3.2', base_url='http://localhost:11434')
-embedder = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
-
 def setup_db():
     conn = sqlite3.connect(COMPUTE_DB_PATH)
     cursor = conn.cursor()
@@ -51,6 +47,7 @@ class State(TypedDict):
     generalized_query: str # e.g., convert [x] km to [y]
     var_num: list
     formula: str
+    formula_template: str
     answer: str
     route: str # e.g., "apply" or "learn" or "error"
 
@@ -69,12 +66,12 @@ def compute_answer(state: State) -> dict:
 
     try:
         answer = str(eval(formula))
-        print(f"Formula: {formula}")
-        print(f"Answer: {answer}")
+        # print(f"Formula: {formula}")
+        # print(f"Answer: {answer}")
     except Exception as e:
         answer = f"Error: {str(e)}"
-        print(f"Formula: {formula}")
-        print(f"Answer: {answer}")
+        # print(f"Formula: {formula}")
+        # print(f"Answer: {answer}")
 
     return {'answer': answer}
 
@@ -104,6 +101,10 @@ def update_compute_database(generalized_query: str, var_num: list, corrected_tem
     return {"formula": formula, "answer": answer}
 
 def check_database(state: State) -> dict:
+    # initialize the embedder and llm (lazy load)
+    llm = ChatOllama(model='llama3.2', base_url='http://localhost:11434')
+    embedder = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
+
     generalized_query = state["generalized_query"]
     var_num = state["var_num"]
 
@@ -161,11 +162,8 @@ def check_database(state: State) -> dict:
 
         veto_response = llm.invoke(veto_msg).content.strip()
 
-
         # COMMENT THIS OUT BEFORE PRODUCTION
-        print(f"\n[JUDGE LOG]:\n{veto_response}\n")
-
-
+        # print(f"\n[JUDGE LOG]:\n{veto_response}\n")
 
         if "<VERDICT>YES</VERDICT>" in veto_response.upper():
             formula = best_formula
@@ -173,9 +171,9 @@ def check_database(state: State) -> dict:
                 formula = formula.replace(f"[x{i}]", num) # type: ignore
 
             # if score is above 0.85 and NO mismatch
-            return {'formula': formula, 'route': 'apply'}
+            return {'formula': formula, 'formula_template': best_formula, 'route': 'apply'}
         else:
-            print("\n[ROUTER LOG]: Database match vetoed due to directionality mismatch.")
+            # print("\n[ROUTER LOG]: Database match vetoed due to directionality mismatch.")
 
             # if score is above 0.85 but is a mismatch
             return {'route': 'learn'}
@@ -192,6 +190,10 @@ def route_query(state: State) -> str:
         return "llm_reasoning"
 
 def llm_reasoning(state: State) -> dict:
+    # initialize the embedder and llm (lazy load)
+    llm = ChatOllama(model='llama3.2', base_url='http://localhost:11434')
+    embedder = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
+
     query = state["query"]
     generalized_query = state["generalized_query"]
     var_num = state["var_num"]
@@ -269,7 +271,7 @@ def llm_reasoning(state: State) -> dict:
     conn.commit()
     conn.close()
 
-    return {"formula": formula}
+    return {"formula": formula, 'formula_template': formula_temp}
 
 workflow = StateGraph(State)
 
