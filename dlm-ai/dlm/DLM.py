@@ -6,21 +6,14 @@ import string
 import random
 import spacy
 import sqlite3
-import warnings
-import logging
-from transformers.utils import logging as hf_logging
-from .DLM_Compute_Model import *
-from .DLM_Memory_Model import *
-from transformers import pipeline
+import socket
+import subprocess
+import time
+from DLM_Compute_Model import *
+from DLM_Memory_Model import *
 from better_profanity import profanity
-os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["HF_HUB_VERBOSITY"] = "error"
-warnings.filterwarnings("ignore")
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
-hf_logging.disable_progress_bar()
-hf_logging.set_verbosity_error()
-
+from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage, SystemMessage
 
 class DLM:
     """
@@ -35,6 +28,7 @@ class DLM:
     _shared_nlp = None
     _shared_hf = None
     _shared_profanity_loaded = False
+    _shared_router = None
 
     __filename = None  # knowledge-base (SQL)
     __query = None  # user-inputted query
@@ -46,10 +40,9 @@ class DLM:
     __special_stripped_query = None  # saves query without any special words for reduced interference while vector calculating
     __refuse_to_respond = False # if profanity and all caps-lock frustration is detected, refuse to respond and suggest user to rephrase nicely
     __model = None # bot automatically chooses between "compute" or "memory" model based on query type (auto-routing)
-    __hf_classifier = None # loading huggingface model to determine the query type for auto_mode
-    __try_memory = False # if the bot tried "compute" model first then decided to try "memory" model
     __computation_feedback = ""
     __computation_state = None
+
     # personalized responses to let the user know that the bot doesn't know the answer
     __fallback_responses = [
         "Hmm, that's a great question! I might need more context or details to answer it.",
@@ -190,21 +183,22 @@ class DLM:
             mode (str): 'learn' to enable teaching capabilities, 'apply' for standard use.
             db_filename (str, optional): Absolute path to the SQLite database. Defaults to '~/.dlm/dlm_database.db'.
         """
+        self.__ensure_ollama_running() # ensure it is router is running
         # lazy load SpaCy
         if DLM._shared_nlp is None:
             DLM._shared_nlp = spacy.load("en_core_web_lg")
-
-        # lazy Load HuggingFace
-        if DLM._shared_hf is None:
-            DLM._shared_hf = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
         # load profanity filter
         if not DLM._shared_profanity_loaded:
             profanity.load_censor_words()
             DLM._shared_profanity_loaded = True
 
+        # lazy load ollama router
+        if DLM._shared_router is None:
+            DLM._shared_router = ChatOllama(model='llama3.2', base_url='http://localhost:11434')
+        self.__router_llm = DLM._shared_router
+
         self.__nlp = DLM._shared_nlp
-        self.__hf_classifier = DLM._shared_hf
 
         if db_filename is None:
             # Create an absolute path to a hidden folder in the user's home directory
@@ -268,6 +262,30 @@ class DLM:
                     """)
 
         self.__conn.commit()
+
+    def __ensure_ollama_running(self) -> None: # pyright: ignore[reportSelfClsParameterName]
+        """Silently checks if Ollama is active, and boots it in the background if it is not."""
+        port = 11434
+        host = '127.0.0.1'
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            try:
+                s.connect((host, port))
+                return
+            except socket.error:
+                pass
+        try:
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0),
+                start_new_session=True
+            )
+            time.sleep(3)
+        except FileNotFoundError:
+            print("\n[CRITICAL ERROR]: Ollama is not installed on this system. Please install it from ollama.com to use DLM.")
 
     def __filtered_input(self, userInput) -> str:
         """
@@ -474,16 +492,13 @@ class DLM:
 
         elif identifier == "process":  
             templates = [
-                "To get started, {}. Then, {}. Finally, {}",
-                "First, {}. Next, {}. Lastly, {}",
-                "Begin by {}. After that, {}. Don't forget to {}.",
-                "Start with {}. Continue by {}. Finish by {}.",
-                "Initially, {}. Then proceed to {}. End with {}.",
-                "Kick things off by {}. Follow it up with {}. Conclude by {}.",
-                "Your first step is to {}. The second step is to {}. The final step is to {}.",
-                "Commence by {}. Subsequently, {}. Ultimately, {}.",
-                "Start off by {}. Then move on to {}. Finally, make sure you {}.",
-                "Begin with {}. Then take care of {}. Lastly, ensure you {}."
+                "Step one: {}. Step two: {}. Finally: {}.",
+                "First, {}. Next, {}. Lastly, {}.",
+                "To start: {}. Then: {}. To finish: {}.",
+                "Initially, {}. Following that, {}. End by ensuring you {}.",
+                "Your first action is to {}. The second is to {}. The final action is to {}.",
+                "Start off with this: {}. Then move on to: {}. Conclude with: {}.",
+                "Phase one: {}. Phase two: {}. Phase three: {}."
             ]
             steps = best_match_answer.split("; ")  
             return random.choice(templates).format(*steps[:3])
@@ -674,18 +689,6 @@ class DLM:
             response_data["answer"] = answer_buffer.getvalue()
             return response_data
 
-        # three modes, three different ways to handle
-        if self.__mode == "apply":
-            auto_model_choice = self.__hf_classifier(self.__query, ["math and calculation", "general factual knowledge"])["labels"][0] # type: ignore
-            if auto_model_choice == "math and calculation":
-                self.__model = "compute"
-            else:
-                self.__model = "memory"
-        elif self.__mode == "train_memory":
-            self.__model = "memory"
-        elif self.__mode == "train_compute":
-            self.__model = "compute"
-
         # filtering
         to_remove = ""
         if self.__model == "memory":
@@ -725,6 +728,40 @@ class DLM:
             best_match_answer = None
             best_match_question = None
 
+        # three modes, three different ways to handle (HYBRID ROUTING)
+        if self.__mode == "apply":
+            if highest_similarity >= 0.75:
+                self.__model = "memory" # bypass the routing since it must be a memory trained query
+            else:
+                routing_msg = [
+                    SystemMessage(content=(
+                        "You are a strict binary routing script for an AI system.\n"
+                        "Categorize the user's query into one of two buckets:\n"
+                        "1. COMPUTE: Calculating numbers, math word problems, or unit conversions.\n"
+                        "2. MEMORY: Factual information, definitions, yes/no questions, processes, or general knowledge.\n\n"
+                        "EXAMPLES:\n"
+                        "Q: 'What is the definition of ROS 2?' -> <ROUTE>MEMORY</ROUTE>\n"
+                        "Q: 'Add -45.5 and 10' -> <ROUTE>COMPUTE</ROUTE>\n"
+                        "Q: 'Can HuggingFace transformers be loaded lazily?' -> <ROUTE>MEMORY</ROUTE>\n"
+                        "Q: 'Multiply 0.85 by 12' -> <ROUTE>COMPUTE</ROUTE>\n"
+                        "Q: 'What is the process for analyzing a quantum circuit?' -> <ROUTE>MEMORY</ROUTE>\n\n"
+                        "Output ONLY the exact XML tag <ROUTE>COMPUTE</ROUTE> or <ROUTE>MEMORY</ROUTE>. Do not output any other text."
+                    )),
+                    HumanMessage(content=self.__query)
+                ]
+
+                route_response = self.__router_llm.invoke(routing_msg).content.strip().upper()
+
+                if "<ROUTE>COMPUTE</ROUTE>" in route_response:
+                    self.__model = "compute"
+                else:
+                    self.__model = "memory"
+
+        elif self.__mode == "train_memory":
+            self.__model = "memory"
+        elif self.__mode == "train_compute":
+            self.__model = "compute"
+
         response_data["context"] = {
             "special_stripped_query": self.__special_stripped_query,
             "best_match_answer": best_match_answer
@@ -735,23 +772,6 @@ class DLM:
             self.__generate_thought(self.__query, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought)
 
         is_valid_match = (not self.__unsure_while_thinking) and ((highest_similarity >= 0.65) or (best_match_answer and self.__semantic_similarity(self.__special_stripped_query, best_match_question)))
-
-        # fallback routing attempt
-        if self.__model == "compute" and self.__try_memory and self.__mode == "apply":
-            with contextlib.redirect_stdout(cot_buffer):
-                if display_thought:
-                    print("Let me put this into my memory model, maybe it wasn't a mathematical query...")
-                self.__model = "memory"
-                self.__generate_thought(self.__query, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought)
-            self.__try_memory = False
-
-        if self.__model == "memory":
-            if not is_valid_match and self.__mode == "apply":
-                self.__model = "compute"
-                with contextlib.redirect_stdout(cot_buffer):
-                    if display_thought:
-                        print("Let me put this into my computation model, maybe it was a mathematical query...")
-                    self.__generate_thought(self.__query, filtered_query, best_match_question, best_match_answer, highest_similarity, display_thought)
 
         # resolution & final answer capture
         with contextlib.redirect_stdout(answer_buffer):
@@ -769,7 +789,11 @@ class DLM:
                 if self.__computation_state:
                     response_data["status"] = "confirm_compute" if self.__mode == "train_compute" else "resolved"
 
-                    print(f"The calculated result: {self.__computation_state.get('answer')}")
+                    calc_answer = str(self.__computation_state.get('answer', ''))
+                    if "Error:" in calc_answer:
+                        print(random.choice(self.__fallback_responses))
+                    else:
+                        print(f"The calculated result: {calc_answer}")
                     
                     # Pack the computation context for the implementor
                     response_data["context"] = {

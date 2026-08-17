@@ -137,7 +137,8 @@ def check_database(state: State) -> dict:
             "RULES:\n"
             "1. Focus ONLY on mathematical verbs (add, subtract, convert) and units/direction (e.g., C to F).\n"
             "2. The '[x]' tokens represent generic number placeholders.\n"
-            "3. Conversational wrappers ('hey', 'can you', 'please calculate') do NOT change the core mathematical intent.\n\n"
+            "3. Conversational wrappers ('hey', 'can you', 'please calculate') do NOT change the core mathematical intent.\n"
+            "4. Ignore any differences in capitilization, punctuation, or spelling errors.\n\n"
             
             "OUTPUT FORMAT:\n"
             "You must output your response strictly using these XML tags:\n"
@@ -159,7 +160,12 @@ def check_database(state: State) -> dict:
         )), HumanMessage(content=f"User Query: {generalized_query}\nDatabase Match: {best_mold}")]
 
         veto_response = llm.invoke(veto_msg).content.strip()
+
+
+        # COMMENT THIS OUT BEFORE PRODUCTION
         print(f"\n[JUDGE LOG]:\n{veto_response}\n")
+
+
 
         if "<VERDICT>YES</VERDICT>" in veto_response.upper():
             formula = best_formula
@@ -289,5 +295,4 @@ workflow.add_edge("compute_answer", END)
 
 setup_db()
 
-# COMPILE!
 dlm_compute_engine = workflow.compile()
