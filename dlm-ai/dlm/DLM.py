@@ -316,6 +316,7 @@ class DLM:
 
         # remove filler words
         filtered_words = []
+        compute_preserve = {"had", "have", "has", "already", "now", "of", "originally", "initial", "initially"}
         for i, word in enumerate(words):
             word_lowered = word.lower()
 
