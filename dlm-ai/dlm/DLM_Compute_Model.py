@@ -3,11 +3,20 @@ import regex as re
 import sqlite3
 import json
 import math
+import sympy as sp
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import OllamaEmbeddings
+
+# defining allowed mathematical environments for eval
+allowed_env = {
+        "sp": sp,
+        "x": sp.Symbol('x'),
+        "y": sp.Symbol('y'),
+        "z": sp.Symbol('z'),
+        "t": sp.Symbol('t')}
 
 def get_db_path():
     home_dir = os.path.expanduser("~")
@@ -65,13 +74,10 @@ def compute_answer(state: State) -> dict:
     formula = state["formula"]
 
     try:
-        answer = str(eval(formula))
-        # print(f"Formula: {formula}")
-        # print(f"Answer: {answer}")
+        result = eval(formula, {"__builtins__": {}}, allowed_env)
+        answer = str(result)
     except Exception as e:
         answer = f"Error: {str(e)}"
-        # print(f"Formula: {formula}")
-        # print(f"Answer: {answer}")
 
     return {'answer': answer}
 
@@ -94,7 +100,7 @@ def update_compute_database(generalized_query: str, var_num: list, corrected_tem
         formula = formula.replace(f"[x{i}]", num)
 
     try:
-        answer = str(eval(formula))
+        answer = str(eval(formula, {"__builtins__": {}}, allowed_env))
     except Exception as e:
         answer = f"Error: {str(e)}"
 
@@ -139,7 +145,8 @@ def check_database(state: State) -> dict:
             "1. Focus ONLY on mathematical verbs (add, subtract, convert) and units/direction (e.g., C to F).\n"
             "2. The '[x]' tokens represent generic number placeholders.\n"
             "3. Conversational wrappers ('hey', 'can you', 'please calculate') do NOT change the core mathematical intent.\n"
-            "4. Ignore any differences in capitilization, punctuation, or spelling errors.\n\n"
+            "4. Ignore any differences in capitilization, punctuation, or spelling errors.\n"
+            "5. CRITICAL: The User Query and Database Match MUST have the exact same number of [x] variables. If one has [x][x] and the other has [x], output <verdict>NO</verdict>.\n\n"
             
             "OUTPUT FORMAT:\n"
             "You must output your response strictly using these XML tags:\n"
@@ -204,13 +211,15 @@ def llm_reasoning(state: State) -> dict:
             "You are a Python math translator. Your ONLY job is to write a 1-line Python expression for the user's query.\n"
             "RULES:\n"
             "1. DO NOT calculate the final answer. Write the equation (e.g., write 5 + 5, NOT 10).\n"
-            "2. ONLY output valid Python operators (+, -, *, /, **).\n"
-            "3. Use 3.14159 for Pi.\n"
-            "4. If the operation is division by zero, write out the division directly (e.g., 15 / 0).\n"
-            "5. If calculating 2D straight-line distance, use the Pythagorean theorem: (a**2 + b**2)**0.5\n"
-            "6. Do NOT perform unnecessary unit conversions if the input units already match (e.g., mAh divided by mA is just division).\n"
-            "7. Ignore non-math text commands like 'print' or conversational filler.\n"
-            "8. Do NOT wrap the formula in markdown code blocks (```).\n\n"
+            "2. For basic arithmetic, ONLY output valid Python operators (+, -, *, /, **).\n"
+            "3. For symbolic math (calculus, algebra), use the `sp` prefix for SymPy functions (e.g., sp.diff, sp.integrate, sp.solve).\n"
+            "4. The variables x, y, z, and t are already defined as SymPy symbols. Use them directly. To solve an equation like '2x = 10', format it as sp.solve(2*x - 10, x).\n"
+            "5. Use 3.14159 or sp.pi for Pi.\n"
+            "6. If the operation is division by zero, write out the division directly (e.g., 15 / 0).\n"
+            "7. If calculating 2D straight-line distance, use the Pythagorean theorem: (a**2 + b**2)**0.5\n"
+            "8. Do NOT perform unnecessary unit conversions if the input units already match (e.g., mAh divided by mA is just division).\n"
+            "9. Ignore non-math text commands like 'print' or conversational filler.\n"
+            "10. Do NOT wrap the formula in markdown code blocks (```).\n\n"
             "EXAMPLES:\n"
             "User: convert 100 celsius to fahrenheit\n"
             "REASONING: To convert Celsius to Fahrenheit, multiply by 9/5 and add 32.\n"
@@ -244,7 +253,16 @@ def llm_reasoning(state: State) -> dict:
             "FORMULA: (15 ** 2 + 20 ** 2) ** 0.5\n\n"
             "User: 5000 mAh battery, motors draw 250 mA, runtime in hours?\n"
             "REASONING: Divide capacity by draw to get runtime. Units match.\n"
-            "FORMULA: 5000 / 250"
+            "FORMULA: 5000 / 250\n\n"
+            "User: what is the derivative of 15x\n"
+            "REASONING: The user wants the derivative of 15*x with respect to x.\n"
+            "FORMULA: sp.diff(15*x, x)\n\n"
+            "User: integrate x^2\n"
+            "REASONING: The user wants the indefinite integral of x**2 with respect to x.\n"
+            "FORMULA: sp.integrate(x**2, x)\n\n"
+            "User: solve 2x + 5 = 15 for x\n"
+            "REASONING: Set the equation to zero (2*x + 5 - 15) and use sp.solve.\n"
+            "FORMULA: sp.solve(2*x + 5 - 15, x)"
         )), HumanMessage(content=query)
     ]
     response = llm.invoke(msg)
