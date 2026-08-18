@@ -186,7 +186,13 @@ class DLM:
         self.__ensure_ollama_running() # ensure it is router is running
         # lazy load SpaCy
         if DLM._shared_nlp is None:
-            DLM._shared_nlp = spacy.load("en_core_web_lg")
+            try:
+                DLM._shared_nlp = spacy.load("en_core_web_lg") # type: ignore
+            except OSError:
+                print("[SYSTEM]: Downloading required SpaCy NLP model (this will only happen once)...")
+                import spacy.cli
+                spacy.cli.download("en_core_web_lg") # type: ignore
+                DLM._shared_nlp = spacy.load("en_core_web_lg")
 
         # load profanity filter
         if not DLM._shared_profanity_loaded:
@@ -284,6 +290,14 @@ class DLM:
                 start_new_session=True
             )
             time.sleep(3)
+
+            required_models = ["llama3.2", "nomic-embed-text"]
+            existing_models = subprocess.check_output(["ollama", "list"]).decode("utf-8")
+
+            for model in required_models:
+                if model not in existing_models:
+                    print(f"\n[SYSTEM]: Downloading and pulling required Ollama model '{model}'. This may take a few minutes...")
+                    subprocess.run(["ollama", "pull", model], check=True)
         except FileNotFoundError:
             print("\n[CRITICAL ERROR]: Ollama is not installed on this system. Please install it from ollama.com to use DLM.")
 
