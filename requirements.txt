@@ -1,0 +1,9 @@
+regex
+langgraph
+langchain-ollama
+langchain-core
+spacy
+transformers
+torch
+better-profanity
+nltk
