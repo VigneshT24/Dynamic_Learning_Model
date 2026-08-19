@@ -385,6 +385,7 @@ DLM wraps these raw facts in dynamic templates. If you include conversational fi
 
 | Category | What to Train (Expected Format) | Example Training Input | Example Bot Output |
 | :--- | :--- | :--- | :--- |
+| **generic** | Answer can be in any format, no rules | Hi, I am DLM, hope you are doing well. | *"Hi, I am DLM, hope you are doing well."* |
 | **yesno** | Start directly with "Yes" or "No", followed by the reason. | Yes, because of Rayleigh scattering. | *"Absolutely, yes, because of Rayleigh scattering."* |
 | **process** | A list of steps separated strictly by **semicolons**. | Get bread; add peanut butter; eat it. | *"First, get bread. Next, add peanut butter. Lastly, eat it."* |
 | **definition** | The raw, objective definition of the subject. | The process plants use to make food. | *"By definition, it is the process plants use to make food."* |
