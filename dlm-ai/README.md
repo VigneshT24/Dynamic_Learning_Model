@@ -261,7 +261,7 @@ def test_dlm_architecture():
     print("TRAIN_MEMORY TEST")
     print("=========================================\n\n")
 
-    dlm_train_mem = DLM(mode="train_memory", db_filename="college_knowledge.db")
+    dlm_train_mem = DLM("train_memory")
 
     query = input("MEMORY TRAINING: ")
     print(f"\n[QUERY]: {query}")
@@ -272,7 +272,7 @@ def test_dlm_architecture():
     print("TRAIN_COMPUTE TEST")
     print("=========================================\n\n")
 
-    dlm_train_comp = DLM(mode="train_compute", db_filename="college_knowledge.db")
+    dlm_train_comp = DLM("train_compute")
 
     query = input("COMPUTE TRAINING: ")
     print(f"[QUERY]: {query}")
@@ -283,7 +283,7 @@ def test_dlm_architecture():
     print("APPLY (PRODUCTION) TEST")
     print("=========================================\n\n")
 
-    dlm_apply = DLM(mode="apply", db_filename="college_knowledge.db")
+    dlm_apply = DLM("apply")
 
     query = input("APPLY MODE: ")
     print(f"[QUERY]: {query}")
@@ -300,11 +300,30 @@ def implementor_testing():
         mode = "train_memory"
     elif mode == "c":
         mode = "train_compute"
-
-    dlm_bot = DLM(mode, "college_knowledge.db")
+    else:
+        print("Proper mode not provided. Exiting the program.")
+        return
 
     while True:
         q = input("ASK: ")
+
+        if q.lower() == "switch to apply":
+            mode = "apply"
+            print("\nSuccessfully switched to 'APPLY' mode.")
+            continue
+        elif q.lower() == "switch to train memory":
+            mode = "train_memory"
+            print("\nSuccessfully switched to 'TRAIN_MEMORY' mode.")
+            continue
+        elif q.lower() == "switch to train compute":
+            mode = "train_compute"
+            print("\nSuccessfully switched to 'TRAIN_COMPUTE' mode")
+            continue
+        elif q.lower() == "quit":
+            print("\nEnding the program.")
+            break
+
+        dlm_bot = DLM(mode)
         response = dlm_bot.ask(q, True)
 
         match response["status"].lower():
@@ -317,19 +336,26 @@ def implementor_testing():
                 print("\n\nPROPOSED ANSWER: ", response['answer'])
                 
                 feedback = input("\nIs this the right answer? (Y/N): ").strip().upper()
+                while feedback != "Y" and feedback != "N":
+                    feedback = input("\nPlease only enter either 'Y' for yes or 'N' for no: ")
                 if feedback == 'N':
                     print("\n[MEMORY CORRECTION MODE]")
                     correct_ans = input("\nEnter the correct answer: ").strip()
-                    category = input("\nEnter the category (e.g., generic, yesno, definition): ").strip()
-                    
-                    # Grab the cleanly stripped query we saved in the context dict
-                    query_to_teach = response['context'].get('special_stripped_query')
-                    
-                    success = dlm_bot.teach_memory(query_to_teach, correct_ans, category)
-                    if success:
-                        print("\n[SYSTEM LOG]: Memory successfully updated.")
+                    if correct_ans == "":
+                        print("No correct answer provided. Nothing saved.")
                     else:
-                        print("\n[SYSTEM LOG]: Failed to update memory.")
+                        category = input("\nEnter the category (e.g., generic, yesno, definition): ").strip()
+                        while category == "" or category not in ['generic', 'yesno', 'process', 'definition', 'deadline', 'location', 'eligibility']:
+                            category = input("\nPlease enter a valid category: ")
+                        
+                        # grab the cleanly stripped query we saved in the context dict
+                        query_to_teach = response['context'].get('special_stripped_query')
+                        
+                        success = dlm_bot.teach_memory(query_to_teach, correct_ans, category)
+                        if success:
+                            print("\n[SYSTEM LOG]: Memory successfully updated.")
+                        else:
+                            print("\n[SYSTEM LOG]: Failed to update memory.")
                         
             case "confirm_compute":
                 print("\n\nTHOUGHT: ", response['thought'])
@@ -337,41 +363,51 @@ def implementor_testing():
                 print(f"\nCALCULATED ANSWER: {response['context'].get('answer')}")
                 
                 feedback = input("\nIs this calculation correct? (Y/N): ").strip().upper()
+                while feedback != "Y" and feedback != "N":
+                    feedback = input("\nPlease only enter either 'Y' for yes or 'N' for no: ")
                 if feedback == 'N':
                     print("\n[COMPUTE CORRECTION MODE]")
                     
-                    # Pull variables from context to show the user what [x] maps to what number
+                    # pull variables from context to show the user what [x] maps to what number
                     var_num = response['context'].get('var_num', [])
                     mapping = ", ".join(f"[x{i}] = {v}" for i, v in enumerate(var_num))
                     print(f"Extracted Variables: {mapping}")
                     
                     corrected_template = input("Enter the correct Python formula using [x] variables (e.g., [x0] * 9/5 + 32): ").strip()
-                    generalized_query = response['context'].get('generalized_query')
-                    
-                    # Send it back to the compute engine to overwrite the database and recalculate
-                    new_state = dlm_bot.teach_compute(generalized_query, var_num, corrected_template)
-                    
-                    print(f"\nCorrected Final Answer: {new_state.get('answer')}")
-                    print("[SYSTEM LOG]: Compute database permanently updated with your correction.")
+                    if corrected_template == "":
+                        print("No correction provided. Nothing saved.")
+                    else:
+                        generalized_query = response['context'].get('generalized_query')
+                        
+                        # send it back to the compute engine to overwrite the database and recalculate
+                        new_state = dlm_bot.teach_compute(generalized_query, var_num, corrected_template)
+                        
+                        print(f"\nCorrected Final Answer: {new_state.get('answer')}")
+                        print("[SYSTEM LOG]: Compute database permanently updated with your correction.")
                     
             case "needs_teaching":
                 print("\n\nTHOUGHT: ", response['thought'])
                 print("\n[SYSTEM LOG]: The bot does not know the answer to this query.")
                 
-                # Defaulting to memory teaching when stumped
+                # defaulting to memory teaching when stumped
                 correct_ans = input("Enter the expected answer: ").strip()
-                category = input("Enter the category (e.g., generic, location, deadline): ").strip()
-                
-                query_to_teach = response['context'].get('special_stripped_query')
-                
-                success = dlm_bot.teach_memory(query_to_teach, correct_ans, category)
-                if success:
-                    print("\n[SYSTEM LOG]: New knowledge successfully added to memory.")
+                if correct_ans == "":
+                    print("No correct answer provided. Nothing saved.")
                 else:
-                    print("\n[SYSTEM LOG]: Failed to update memory.")
+                    category = input("Enter the category (generic, location, deadline, process, yesno, eligibility, definition): ").strip()
+
+                    while category == "" or category not in ['generic', 'yesno', 'process', 'definition', 'deadline', 'location', 'eligibility']:
+                        category = input("\nPlease enter a valid category: ")
+                    
+                    query_to_teach = response['context'].get('special_stripped_query')
+                    
+                    success = dlm_bot.teach_memory(query_to_teach, correct_ans, category)
+                    if success:
+                        print("\n[SYSTEM LOG]: New knowledge successfully added to memory.")
+                    else:
+                        print("\n[SYSTEM LOG]: Failed to update memory.")
 
 if __name__ == "__main__":
-    # test_dlm_architecture()
     implementor_testing()
 ```
 
