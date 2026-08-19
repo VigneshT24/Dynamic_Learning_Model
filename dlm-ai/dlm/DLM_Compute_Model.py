@@ -60,6 +60,23 @@ class State(TypedDict):
     answer: str
     route: str # e.g., "apply" or "learn" or "error"
 
+def is_safe_formula(formula: str) -> bool:
+    """
+    Acts as a security gatekeeper to prevent malicious Python code execution.
+    Blocks dunder methods and dangerous keywords from reaching eval().
+    """
+    dangerous_keywords = [
+        "__", "import", "eval", "exec", "globals", "locals",
+        "open", "getattr", "setattr", "delattr", "system", "os", "subprocess"
+    ]
+    
+    # if any dangerous keyword is found in the string reject it
+    for keyword in dangerous_keywords:
+        if keyword in formula:
+            return False
+            
+    return True
+
 def normalize_and_extract(state: State) -> dict:
     """Extracts all numbers from query, generates the general query for model to study, and then returns the generalized query and the list of numbers."""
     user_query = state['query'].replace(',', '')
@@ -73,6 +90,10 @@ def compute_answer(state: State) -> dict:
     """Uses the LangGraph State Node to get the formula, solve it, and then output the answer using a dictionary."""
     formula = state["formula"]
 
+    # security check
+    if not is_safe_formula(formula):
+        return {'answer': "Error: Formula rejected due to potentially malicious or unauthorized syntax."}
+
     try:
         result = eval(formula, {"__builtins__": {}}, allowed_env)
         answer = str(result)
@@ -83,6 +104,10 @@ def compute_answer(state: State) -> dict:
 
 def update_compute_database(generalized_query: str, var_num: list, corrected_template: str) -> dict:
     """An exposed method for inversion-of-control to update a math formula and recalculate if initial output is inaccurate."""
+
+    # security check
+    if not is_safe_formula(corrected_template):
+        return {'formula': corrected_template, 'answer': "Error: Formula rejected due to potentially malicious or unauthorized syntax."}
 
     # update the database
     conn = sqlite3.connect(COMPUTE_DB_PATH)
