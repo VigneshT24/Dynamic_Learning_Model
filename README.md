@@ -163,7 +163,7 @@ while True:
 ###  4. Complete Implementation Example
 
 ```python
-from DLM import DLM
+from dlm import DLM
 
 def test_dlm_architecture():
     """Example Implementation."""
