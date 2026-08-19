@@ -53,33 +53,24 @@ The goal is to build a structured system that can be trained, corrected, inspect
 
 ## High Level Architecture Diagram
 
-                         User Query
-                             │
-                             ▼
-                     ┌────────────────┐
-                     │      DLM       │
-                     │  Query Router  |
-                     |  Ollama / LLM  │
-                     └───────┬────────┘
-                             │
-                ┌────────────┴────────────┐
-                │                         │
-                ▼                         ▼
-       ┌─────────────────┐      ┌─────────────────┐
-       │  Memory Engine  │      │ Compute Engine  │
-       │                 │      │                 │
-       │ SQLite          │      │ Ollama / LLM    │
-       │ SpaCy           |      | SQLite          |
-       | Embeddings      │      │ SymPy           │
-       │ Knowledge       │      │ LangGraph       │
-       └────────┬────────┘      └────────┬────────┘
-                │                        │
-                └───────────┬────────────┘
-                            ▼
-                    Structured Result
-                            │
-                            ▼
-                    Application Layer
+```text
+User Query
+    ↓
+DLM Query Router (LLaMA)
+    ↓
+[Is it Math or Facts?]
+   /              \
+  ↓                ↓
+COMPUTE ENGINE    MEMORY ENGINE
+(LangGraph)       (SpaCy)
+(SymPy)           (SQLite)
+  ↓                ↓
+   \              /
+    ↓            ↓
+Structured Result (Python Dictionary)
+    ↓
+Application Layer (Your Code)
+```
 
 ## Features
 

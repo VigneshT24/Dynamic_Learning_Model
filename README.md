@@ -9,21 +9,31 @@
 [![Python Version](https://img.shields.io/badge/python-3.12.0%2B-blue)](https://pypi.org/project/dynamic-learning-model/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+## Built With/Tech-Stack
+
+**Python** · **Ollama Llama 3.2** · **SQLite** · **SymPy** · **SpaCy** · **LangGraph**
+
 ## Overview
 
-The Dynamic Learning Model (DLM) is a hybrid, domain-specific AI system designed to learn, adapt, and respond intelligently to user queries. It combines natural language understanding with structured reasoning, continually improving as it is trained.
+Dynamic Learning Model (DLM) is a locally hosted Python AI framework for building domain-specific assistants with persistent memory, symbolic mathematical reasoning, and human-in-the-loop learning.
 
-**Important Architecture Note**: DLM acts as a backend engine, not a standalone chatbot. It processes queries and returns the answer, the thought process (if requested), and other structured information in a Python dictionary. It is the responsibility of the **implementor** to build the application loop, handle these states, interact with the user, and pass training data back to the bot via the `teach_memory()` and `teach_compute()` methods.
+**Important Architecture Note**: DLM acts as a backend engine, not a standalone chatbot, therefore, it doesn't generate a graphical chat interface. It processes queries and returns the answer, the thought process (if requested), and other structured information in a Python dictionary. It is the responsibility of the **implementor** to build the application loop, handle these states, interact with the user, and pass training data back to the bot via the `teach_memory()` and `teach_compute()` methods.
+
+Additionally, DLM does not retrain the underlying LLM. Training operations modify DLM's local knowledge and computation databases, allowing the system to improve its responses without modifying the neural model weights.
 
 **Key capabilities include:**
 
 - **FAQ Handling** - Learns and responds to frequently asked questions based on the knowledge it has been trained on.
-- **Advanced Math & Chain-of-Thought (CoT)** - Performs clear, step-by-step logic to solve numerical arithmetic, unit conversions, and advanced symbolic math (algebra, calculus, integrals) using SymPy and LangGraph.
+- **Symbolic Mathematical Reasoning** - Performs clear, step-by-step logic to solve numerical arithmetic, unit conversions, and advanced symbolic math (algebra, calculus, integrals) using SymPy and LangGraph.
 - **Custom Knowledge Integration** - DLM is fully extensible. You can initialize it with an empty SQL database and train it with your domain-specific knowledge.
 - **Local Privacy** - DLM runs 100% locally utilizing the Ollama inference engine, keeping all your data secure.
 
 ## Table of Contents
 
+- [Why DLM?](#why-dlm)
+- [High Level Architecture Diagram](#high-level-architecture-diagram)
+- [Features](#features)
+- [How Learning Works](#how-learning-works)
 - [Prerequisites & Installation](#prerequisites--installation)
 - [Initialization & Parameters](#initialization--parameters)
 - [Response Architecture](#response-architecture)
@@ -33,9 +43,88 @@ The Dynamic Learning Model (DLM) is a hybrid, domain-specific AI system designed
 - [License](#license)
 - [Disclaimer](#disclaimer)
 
+## Why DLM?
+
+Large language models are powerful general-purpose systems, but they aren't always ideal for domain-specific applications. They can hallucinate facts, perform unreliable arithmetic, and require external APIs when deployed through cloud-based services.
+
+DLM was designed around a different approach: use an LLM for language understanding, persistent local memory for domain knowledge, and deterministic computational tools such as SymPy for mathematics.
+
+The goal is to build a structured system that can be trained, corrected, inspected, and specialized for a particular domain.
+
+## High Level Architecture Diagram
+
+```text
+User Query
+    ↓
+DLM Query Router (LLaMA)
+    ↓
+[Is it Math or Facts?]
+   /              \
+  ↓                ↓
+COMPUTE ENGINE    MEMORY ENGINE
+(LangGraph)       (SpaCy)
+(SymPy)           (SQLite)
+  ↓                ↓
+   \              /
+    ↓            ↓
+Structured Result (Python Dictionary)
+    ↓
+Application Layer (Your Code)
+```
+
+## Features
+
+* **Persistent Memory**: Stores domain-specific knowledge in SQLite.
+* **Human-in-the-Loop Learning**: Users can correct answers and teach new information.
+* **Symbolic Mathematics**: Uses SymPy for algebra, calculus, integration, and equation solving.
+* **Hybrid Query Routing**: Routes queries between memory and computation systems.
+* **Local LLM Inference:** Uses Ollama for locally hosted language models.
+* **Local Data Storage**: Knowledge and training databases remain on the host machine.
+* **Python API**: Designed as a backend engine that can be integrated into custom applications.
+* **Domain Specialization**: Can be trained for organization-specific knowledge.
+
+## How Learning Works
+
+DLM uses a human-in-the-loop learning system. Instead of retraining the underlying LLM, DLM stores new knowledge and corrections in local SQLite databases.
+
+### Memory Learning
+
+When DLM doesn't know an answer, it can ask the implementor to provide one. The answer is then stored using `teach_memory()` and can be used for future questions.
+
+```text
+Question
+   ↓
+DLM doesn't know
+   ↓
+Human provides answer
+   ↓
+teach_memory()
+   ↓
+Saved to database
+   ↓
+Used in future questions
+```
+
+### Compute Learning
+
+For mathematical questions, DLM uses an LLM to generate a formula. If the formula is incorrect, the implementor can provide a correction using `teach_compute()`.
+
+```text
+Math Question
+   ↓
+LLM generates formula
+   ↓
+SymPy calculates result (if applicable)
+   ↓
+Human verifies
+   ↓
+Correction saved if needed
+```
+> Note: DLM does not retrain the underlying LLM. Its learning comes from updating its local knowledge and computation databases.
+
 ## Prerequisites & Installation
 
-**CRITICAL PREREQUISITE:** This package utilizes local LLM inference to ensure complete data privacy and requires an external engine to run. 
+**Critical Prerequisite:** This package utilizes local LLM inference to ensure complete data privacy and requires an external engine to run. 
 Before installing DLM, you **must** install the Ollama engine for your operating system from [ollama.com](https://ollama.com). 
 
 DLM will automatically handle booting the background server and downloading the required neural network models (`llama3.2` and `nomic-embed-text`) upon its first run.
