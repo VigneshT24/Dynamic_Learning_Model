@@ -190,8 +190,8 @@ class DLM:
                 DLM._shared_nlp = spacy.load("en_core_web_lg") # type: ignore
             except OSError:
                 print("[SYSTEM]: Downloading required SpaCy NLP model (this will only happen once)...")
-                import spacy.cli
-                spacy.cli.download("en_core_web_lg") # type: ignore
+                from spacy.cli import download # type: ignore
+                download("en_core_web_lg") 
                 DLM._shared_nlp = spacy.load("en_core_web_lg")
 
         # load profanity filter
