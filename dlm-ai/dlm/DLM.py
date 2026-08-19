@@ -273,24 +273,34 @@ class DLM:
         """Silently checks if Ollama is active, and boots it in the background if it is not."""
         port = 11434
         host = '127.0.0.1'
+        server_running = False
 
+        # check if the server is already awake
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(1)
             try:
                 s.connect((host, port))
-                return
+                server_running = True
             except socket.error:
                 pass
-        try:
-            subprocess.Popen(
-                ["ollama", "serve"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0),
-                start_new_session=True
-            )
-            time.sleep(3)
+        
+        # boot the server if it was asleep
+        if not server_running:
+            try:
+                subprocess.Popen(
+                    ["ollama", "serve"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=getattr(subprocess, 'DETACHED_PROCESS', 0),
+                    start_new_session=True
+                )
+                time.sleep(3)
+            except FileNotFoundError:
+                print("\n[CRITICAL ERROR]: Ollama is not installed on this system. Please install it from ollama.com to use DLM.")
+                return
 
+        # verify the required models exists even if the server was already running
+        try:
             required_models = ["llama3.2", "nomic-embed-text"]
             existing_models = subprocess.check_output(["ollama", "list"]).decode("utf-8")
 
@@ -299,7 +309,7 @@ class DLM:
                     print(f"\n[SYSTEM]: Downloading and pulling required Ollama model '{model}'. This may take a few minutes...")
                     subprocess.run(["ollama", "pull", model], check=True)
         except FileNotFoundError:
-            print("\n[CRITICAL ERROR]: Ollama is not installed on this system. Please install it from ollama.com to use DLM.")
+             print("\n[CRITICAL ERROR]: Ollama is not installed on this system. Please install it from ollama.com to use DLM.")
 
     def __filtered_input(self, userInput) -> str:
         """
