@@ -303,6 +303,19 @@ DLM wraps these raw facts in dynamic templates. If you include conversational fi
 | **location** | A place, building, or directional instruction. | At the center of campus. | *"You can find it at the center of campus."* |
 | **eligibility**| The specific conditions or prerequisites required. | you have a GPA over 3.5. | *"You qualify only if you have a GPA over 3.5."* |
 
+## DB Browser for SQLite
+
+It is highly recommended to download the DB Broswer (SQLite) application to view your database live to see how the queries are stored and potentially debug the database if it is corrupted. Additionally, you can directly write/overwrite in the application itself if you prefer that over using the terminal to train your DLM. Please follow this link to download DB Browser for SQLite: https://sqlitebrowser.org/dl/
+
+## Troubleshooting
+
+| Error / Issue | Solution |
+| :--- | :--- |
+| `FileNotFoundError: [WinError 2] The system cannot find the file specified` | **Ollama is not installed or not in your system PATH.** Download it from [ollama.com](https://ollama.com), install it, and restart your terminal. |
+| `OSError: [E050] Can't find model 'en_core_web_lg'` | The automatic SpaCy downloader was blocked by your firewall or lacked permissions. Manually run: `python -m spacy download en_core_web_lg` |
+| `NameError: name 'x' is not defined` | In `train_compute` mode, you entered a correction without using the `sp.` SymPy prefix. Ensure formulas look like `sp.solve(...)`. |
+| The bot takes 10+ seconds to answer the first question | **This is normal.** The system is lazily loading the massive models into your RAM. Subsequent questions will be answered quicker. |
+
 ## Important Notices
 
 1. **Training data quality matters.** DLM's accuracy in learning modes depends entirely on the consistency and clarity of the question/answer pairs it's trained with. Inconsistent category labeling can produce corrupted responses later.
