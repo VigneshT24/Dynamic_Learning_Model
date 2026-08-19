@@ -11,7 +11,7 @@
 
 ## Built With/Tech-Stack
 
-**Python** · **Ollama Llama 3.2** · **SQLite** · **SymPy** · **SpaCy** · **LangGraph**
+**Python** · **Ollama Llama 3.2** · **SQLite** · **SymPy** · **SpaCy** · **LangGraph** · **LangChain**
 
 ## Overview
 
