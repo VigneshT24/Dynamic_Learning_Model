@@ -319,7 +319,7 @@ def implementor_testing():
                 feedback = input("\nIs this the right answer? (Y/N): ").strip().upper()
                 if feedback == 'N':
                     print("\n[MEMORY CORRECTION MODE]")
-                    correct_ans = input("E\nnter the correct answer: ").strip()
+                    correct_ans = input("\nEnter the correct answer: ").strip()
                     category = input("\nEnter the category (e.g., generic, yesno, definition): ").strip()
                     
                     # Grab the cleanly stripped query we saved in the context dict
