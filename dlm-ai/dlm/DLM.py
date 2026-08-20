@@ -180,7 +180,10 @@ class DLM:
         Initializes the DLM engine, loading NLP models, connecting to the knowledge base and compute model database.
 
         Args:
-            mode (str): 'learn' to enable teaching capabilities, 'apply' for standard use.
+            mode (str): 
+                * 'train_memory': training/correcting factual domain-specific queries
+                * 'train_compute': training/correcting the computated answers for validity 
+                * 'apply': No training, for when DLM is production ready (ensure to train well before using this for production applications)
             db_filename (str, optional): Absolute path to the SQLite memory database. Defaults to '~/.dlm/dlm_database.db'.
         """
         self.__ensure_ollama_running() # ensure router is running
