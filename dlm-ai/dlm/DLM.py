@@ -17,10 +17,10 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 class DLM:
     """
-    Dynamic-Learning Model (DLM) Chatbot.
+    Dynamic-Learning Model (DLM) Engine.
 
-    A hybrid intent-routing chatbot that dynamically routes user queries between a 
-    computational math engine and an SQLite-backed memory model. It features 
+    A hybrid intent-routing engine that dynamically routes user queries between a 
+    SQLite-backed computational math engine and an memory model. It features 
     Chain-of-Thought (CoT) reasoning, sentiment analysis, and an inversion-of-control 
     architecture for seamless integration into external applications.
     """
@@ -177,13 +177,13 @@ class DLM:
 
     def __init__(self, mode, db_filename=None):  # initializes SQL database & SpaCy NLP
         """
-        Initializes the DLM chatbot, loading NLP models, connecting to the knowledge base and compute model database.
+        Initializes the DLM engine, loading NLP models, connecting to the knowledge base and compute model database.
 
         Args:
             mode (str): 'learn' to enable teaching capabilities, 'apply' for standard use.
-            db_filename (str, optional): Absolute path to the SQLite database. Defaults to '~/.dlm/dlm_database.db'.
+            db_filename (str, optional): Absolute path to the SQLite memory database. Defaults to '~/.dlm/dlm_database.db'.
         """
-        self.__ensure_ollama_running() # ensure it is router is running
+        self.__ensure_ollama_running() # ensure router is running
         # lazy load SpaCy
         if DLM._shared_nlp is None:
             try:
@@ -639,7 +639,7 @@ class DLM:
             knowledgebaseData (str): The question from the database to compare against.
 
         Returns:
-            bool: True if the SpaCy vector similarity exceeds 0.50, False otherwise.
+            bool: True if the SpaCy vector similarity exceeds 0.75, False otherwise.
         """
         if userInput is None or knowledgebaseData is None:
             return False
@@ -655,7 +655,7 @@ class DLM:
         """
         Public API for training the bot with new question-answer-category triples.
 
-        Make sure the expected_answer adheres to the training rules, as written in the DLM github repo: https://github.com/VigneshT24/Dynamic_Learning_Model
+        Make sure the expected_answer adheres to the training rules, as written in the DLM github repo README: https://github.com/VigneshT24/Dynamic_Learning_Model
 
         Category Options:
             - "yesno": make sure to start your answer responses with "yes" or "no" ONLY
@@ -666,7 +666,7 @@ class DLM:
             - "generic": format doesn't matter for this, give your answer in any comprehensive format
             - "eligibility": Make sure to ONLY start the response with a pronoun like "you", "they", "he", "she", etc
         
-        More detail in the Github repo.
+        More details in the Github repo README.
         """
         # calls the learn method from memory model file
         return learn(self, question, expected_answer, category)
@@ -704,7 +704,9 @@ class DLM:
             - 'resolved': The bot successfully answered the query (or executed a fallback response).
             - 'refused': The bot refused to answer due to profanity, aggressive tone, or an empty query.
             - 'confirm_memory': The bot found a potential answer in 'learn' mode. The implementor 
-                                  should ask the user to verify if the answer is expected.
+                                should verify if the answer is expected.
+            - 'confirm_compute': The bot calculated the answer to the mathematical query while in 'compute' mode. The implementor
+                                should verify if the answer is correct.
             - 'needs_teaching': The bot could not find a valid answer or compute a result. The implementor 
                                 should prompt the user for the correct answer and category, then pass 
                                 those to the `teach()` method.

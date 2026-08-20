@@ -19,6 +19,7 @@ allowed_env = {
         "t": sp.Symbol('t')}
 
 def get_db_path():
+    """Creates and returns a newly created DB path at the user's home directory."""
     home_dir = os.path.expanduser("~")
     dlm_dir = os.path.join(home_dir, ".dlm")
     os.makedirs(dlm_dir, exist_ok=True)
@@ -27,6 +28,7 @@ def get_db_path():
 COMPUTE_DB_PATH = get_db_path()
 
 def setup_db():
+    """After creating the DB, this method sets up the DB with column names."""
     conn = sqlite3.connect(COMPUTE_DB_PATH)
     cursor = conn.cursor()
 
@@ -132,6 +134,11 @@ def update_compute_database(generalized_query: str, var_num: list, corrected_tem
     return {"formula": formula, "answer": answer}
 
 def check_database(state: State) -> dict:
+    """
+    Method to check if compute database contains a similar query/formula when compared to the new query asked.
+    Uses 'generate-and-verify' methodology to prevent hallucination by using a veto judge.
+    """
+
     # initialize the embedder and llm (lazy load)
     llm = ChatOllama(model='llama3.2', base_url='http://localhost:11434')
     embedder = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
@@ -214,6 +221,7 @@ def check_database(state: State) -> dict:
     return {'route': 'learn'}
 
 def route_query(state: State) -> str:
+    """Method to help route the query using 'traffic-cop' method."""
     route = state["route"]
 
     if route == "apply":
@@ -222,6 +230,13 @@ def route_query(state: State) -> str:
         return "llm_reasoning"
 
 def llm_reasoning(state: State) -> dict:
+    """
+    Uses Ollama LLM to analyze the query and generate a one-line expression to solve it.
+
+    If query is commpletely new and requires a new formula, a request will be sent to the 
+    compute database to generate and save the new details for next time.
+    """
+
     # initialize the embedder and llm (lazy load)
     llm = ChatOllama(model='llama3.2', base_url='http://localhost:11434')
     embedder = OllamaEmbeddings(model="nomic-embed-text", base_url="http://localhost:11434")
@@ -325,7 +340,7 @@ workflow.add_node("llm_reasoning", llm_reasoning)
 workflow.add_node("compute_answer", compute_answer)
 
 # draw the edges
-# by setting entry point, the starting node is normalize
+# by setting entry point, the starting node is normalized
 workflow.set_entry_point("normalize")
 
 # from normalize, it needs to go to check_db to check if the query already exists
