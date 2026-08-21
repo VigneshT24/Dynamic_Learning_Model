@@ -10,8 +10,8 @@ import socket
 import subprocess
 import time
 import re
-from DLM_Compute_Model import *
-from DLM_Memory_Model import *
+from .DLM_Compute_Model import *
+from .DLM_Memory_Model import *
 from better_profanity import profanity
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
