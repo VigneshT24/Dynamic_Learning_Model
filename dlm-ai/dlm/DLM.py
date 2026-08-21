@@ -9,8 +9,9 @@ import sqlite3
 import socket
 import subprocess
 import time
-from .DLM_Compute_Model import *
-from .DLM_Memory_Model import *
+import re
+from DLM_Compute_Model import *
+from DLM_Memory_Model import *
 from better_profanity import profanity
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -162,7 +163,7 @@ class DLM:
         "show", "list", "give", "how", "i"
     ]
 
-    # Response for when user uses profanity and all caps, indicating extreme anger
+    # response for when user uses profanity and all caps, indicating extreme anger
     __refuse_to_respond_statements = [
         "I understand you may be upset. However, I can't respond to messages expressed in anger. Please rephrase calmly so I can assist you.",
         "Your message seems written in frustration. For a constructive exchange, I need you to restate it respectfully.",
@@ -210,11 +211,11 @@ class DLM:
         self.__nlp = DLM._shared_nlp
 
         if db_filename is None:
-            # Create an absolute path to a hidden folder in the user's home directory
+            # create an absolute path to a hidden folder in the user's home directory
             home_dir = os.path.expanduser("~")
             dlm_dir = os.path.join(home_dir, ".dlm")
             
-            # Ensure the directory exists before SQLite tries to connect
+            # ensure the directory exists before SQLite tries to connect
             os.makedirs(dlm_dir, exist_ok=True)
             self.__filename = os.path.join(dlm_dir, "dlm_database.db")
         else:
@@ -237,11 +238,11 @@ class DLM:
         Destructor: safely closes the database connection when the object is destroyed.
         """
         try:
-            # We check if the connection attribute exists and is not None
+            # we check if the connection attribute exists and is not None
             if hasattr(self, '_DLM__conn') and self.__conn:
                 self.__conn.close()
         except Exception:
-            pass  # Suppress errors during destruction to prevent noisy exit
+            pass  # suppress errors during destruction to prevent noisy exit
 
     def __create_table_if_missing(self) -> None:
         """
@@ -329,7 +330,6 @@ class DLM:
 
         # remove filler words
         filtered_words = []
-        compute_preserve = {"had", "have", "has", "already", "now", "of", "originally", "initial", "initially"}
         for i, word in enumerate(words):
             word_lowered = word.lower()
 
@@ -502,63 +502,76 @@ class DLM:
         Returns:
             str: The formatted response string ready to be delivered to the user.
         """
+        clean_answer = best_match_answer.strip().rstrip(".!?")
+
         identifier = get_category(self, best_match_question)
 
         if identifier is None or identifier == "":
             return "Sorry, I encountered an error on my end. Please try again later."
 
         if identifier == "generic":
-            return best_match_answer
-
-        elif identifier == "yesno":
+            return clean_answer
+        
+        if identifier == "yesno":
+            clean_answer = clean_answer[:1].lower() + clean_answer[1:]
             affirmative_templates = [
                 "Yes, {}", "Absolutely, {}", "Certainly, {}", "Indeed, {}",
                 "That's right, {}", "Correct, {}", "You got it, {}", "Sure thing, {}",
                 "Of course, {}", "Definitely, {}", "Without a doubt, {}",
-                "That's true, {}", "Affirmative, {}", "Right on, {}",
+                "That's true, {}", "Right on, {}",
                 "You're spot on, {}", "Exactly, {}", "Totally, {}",
                 "No question about it, {}", "100%, {}", "I agree, {}"
             ]
             negative_templates = [
                 "No, {}", "Not at all, {}", "Unfortunately, {}", "Of course not, {}",
                 "That's not correct, {}", "Actually, no, {}", "I'm afraid not, {}",
-                "Nope, {}", "Sorry, but no, {}", "That's not the case, {}",
-                "Negative, {}", "Not quite, {}", "That's incorrect, {}",
-                "I'm sorry, {}", "Absolutely not, {}", "Nah, {}",
+                "Nope, {}", "Sorry, but no, {}", "That's not the case, {}", "Not quite, {}", 
+                "That's incorrect, {}", "I'm sorry, {}", "Absolutely not, {}", "Nah, {}",
                 "Doesn't seem so, {}", "I wouldn't say that, {}", "No way, {}",
                 "That's a no, {}"
             ]
 
-            ans = best_match_answer.strip().lower()
+            ans = clean_answer.strip().lower()
             if ans.startswith(("no", "not", "don't", "do not", "never", "cannot")):
                 template = random.choice(negative_templates)
                 if ans.__contains__("no, "):
-                    best_match_answer = best_match_answer.replace("no, ", "", 1)
+                    clean_answer = ans.replace("no, ", "", 1)
                 else:
-                    best_match_answer = best_match_answer.replace("no ", "", 1)
+                    clean_answer = ans.replace("no ", "", 1)
             else:
+                
                 template = random.choice(affirmative_templates)
                 if ans.__contains__("yes, "):
-                    best_match_answer = best_match_answer.replace("yes, ", "", 1)
+                    clean_answer = ans.replace("yes, ", "", 1)
                 else:
-                    best_match_answer = best_match_answer.replace("yes ", "", 1)
+                    clean_answer = ans.replace("yes ", "", 1)
             
-            return template.format(best_match_answer)
+            return template.format(clean_answer)
 
-        elif identifier == "process":  
-            templates = [
-                "Step one: {}. Step two: {}. Finally: {}.",
-                "First, {}. Next, {}. Lastly, {}.",
-                "To start: {}. Then: {}. To finish: {}.",
-                "Initially, {}. Following that, {}. End by ensuring you {}.",
-                "Your first action is to {}. The second is to {}. The final action is to {}.",
-                "Start off with this: {}. Then move on to: {}. Conclude with: {}.",
-                "Phase one: {}. Phase two: {}. Phase three: {}."
-            ]
-            steps = best_match_answer.split("; ")  
-            return random.choice(templates).format(*steps[:3])
+        elif identifier == "process":
+            clean_answer = re.sub(r'(^|;\s*)([A-Z])', lambda m: f"{m.group(1)}{m.group(2).lower()}", clean_answer)
+            starters = ["First, {}.", "To start, {}.", "First off, {}.", "As a first step, {}.", "To get started, {}.", "The first thing to do is {}."]
+            continuations = ["Next, {}.", "Then, {}.", "After that, {}.", "Following that, {}.", "Once that's done, {}.", "From there, {}.", "Afterward, {}.", "The next step is to {}."]
+            finishers = ["Finally, {}.", "Lastly, {}.", "To wrap up, {}.", "To finish, {}.", "As a final step, {}.", "To complete the process, {}.", "The last step is to {}."]
+
+            steps = clean_answer.split("; ")
+
+            complete_process = ""
+
+            for i in range(len(steps)):
+                current_step = steps[i].strip()
+                if i == 0:
+                    complete_process += random.choice(starters).format(current_step)
+                elif i == (len(steps)) - 1:
+                    complete_process += random.choice(finishers).format(current_step)
+                else:
+                    complete_process += random.choice(continuations).format(current_step)
+                complete_process += " "
+
+            return complete_process
 
         elif identifier == "definition":
+            clean_answer = clean_answer[:1].lower() + clean_answer[1:]
             raw = best_match_question  
             triggers = {
                 "what", "definition", "define", "meaning", "interpret",
@@ -577,7 +590,7 @@ class DLM:
                 "It typically means {1}", "It represents {1}",
                 "It is defined as {1}", "You can think of it as {1}"
             ]
-            return random.choice(templates).format(term, best_match_answer)
+            return random.choice(templates).format(term, clean_answer)
 
         elif identifier == "deadline":
             raw = best_match_question
@@ -601,7 +614,7 @@ class DLM:
                 "It is expected to be submitted by {1}", "It must be handed in by {1}",
                 "The cutoff is {1}"
             ]
-            return random.choice(templates).format(term, best_match_answer)
+            return random.choice(templates).format(term, clean_answer)
 
         elif identifier == "location":
             templates = [
@@ -613,22 +626,22 @@ class DLM:
                 "Take a look at {0}", "More details can be found at {0}",
                 "For further info, go to {0}", "To see it yourself, just go to {0}"
             ]
-            best_match_answer = best_match_answer.lower()
-            return random.choice(templates).format(best_match_answer)
+            return random.choice(templates).format(clean_answer)
 
         elif identifier == "eligibility":
+            clean_answer = clean_answer[:1].lower() + clean_answer[1:]
             templates = [
-                "Eligibility means {0}", "Eligibility requires that {0}",
-                "Qualifications are met only if {0}", "To be eligible, {0}",
-                "Meeting eligibility involves {0}", "You qualify only if {0}",
-                "Eligibility is based on whether {0}", "In order to qualify, {0}",
-                "You are eligible when {0}", "The requirements are satisfied if {0}",
-                "Eligibility depends on {0}", "To meet the qualifications, {0}",
-                "Being eligible implies that {0}", "You're considered eligible if {0}",
-                "Eligibility conditions include {0}"
+                "To be eligible, {0}.",
+                "In order to qualify, {0}.",
+                "To meet the qualifications, {0}.",
+                "As a prerequisite, {0}.",
+                "The criteria state that {0}.",
+                "For eligibility, {0}.",
+                "To meet the requirements, {0}.",
+                "Keep in mind that to qualify, {0}.",
+                "As a general rule, {0}."
             ]
-            best_match_answer = best_match_answer.lower()
-            return random.choice(templates).format(best_match_answer)
+            return random.choice(templates).format(clean_answer)
 
         else:
             return "Cannot retrieve and generate response due to data in unfamiliar category. Please try again later."
@@ -852,7 +865,7 @@ class DLM:
                     else:
                         print(f"The calculated result: {calc_answer}")
                     
-                    # Pack the computation context for the implementor
+                    # pack the computation context for the implementor
                     response_data["context"] = {
                         "generalized_query": self.__computation_state.get("generalized_query"),
                         "var_num": self.__computation_state.get("var_num"),

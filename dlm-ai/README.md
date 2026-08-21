@@ -124,8 +124,8 @@ Correction saved if needed
 
 ## Prerequisites & Installation
 
-**Critical Prerequisite:** This package utilizes local LLM inference to ensure complete data privacy and requires an external engine to run. 
-Before installing DLM, you **must** install the Ollama engine for your operating system from [ollama.com](https://ollama.com). 
+**Prerequisite:** This package utilizes local LLM inference to ensure complete data privacy and requires an external engine to run. 
+**Before** installing DLM, you **must** install the Ollama engine for your operating system from [ollama.com](https://ollama.com). 
 
 DLM will automatically handle booting the background server and downloading the required neural network models (`llama3.2` and `nomic-embed-text`) upon its first run.
 
@@ -317,7 +317,7 @@ def implementor_testing():
             continue
         elif q.lower() == "switch to train compute":
             mode = "train_compute"
-            print("\nSuccessfully switched to 'TRAIN_COMPUTE' mode")
+            print("\nSuccessfully switched to 'TRAIN_COMPUTE' mode.")
             continue
         elif q.lower() == "quit":
             print("\nEnding the program.")
